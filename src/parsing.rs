@@ -23,6 +23,14 @@ impl Parsing {
         self.args.clone()
     }
 
+    pub fn set_cmd(&mut self, value: String) {
+        self.cmd = value
+    }
+
+    pub fn set_args(&mut self, value: Vec<String>) {
+        self.args = value;
+    }
+
     pub fn parse_cmd(&mut self, input: &str) -> Result<(), String> {
         let cmds = [
             "cat".to_string(),
@@ -58,16 +66,18 @@ impl Parsing {
     pub fn parse_args(&mut self, input: &str) -> Result<(), String> {
         let mut is_start_with_quotes = false;
         let mut arg = String::new();
+        let mut quote: char = '"';
 
         for ch in input.chars() {
-            if ch == '"' && is_start_with_quotes {
+            if ch == quote && is_start_with_quotes {
                 is_start_with_quotes = false;
                 self.add_arg(arg.clone());
                 arg.clear();
                 continue;
             }
 
-            if ch == '"' {
+            if (ch == '"' || ch == '\'') && !is_start_with_quotes {
+                quote = ch;
                 is_start_with_quotes = true;
                 continue;
             }

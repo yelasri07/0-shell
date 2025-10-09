@@ -15,6 +15,9 @@ fn main() {
 
         let input = input.trim();
 
+        parser.set_cmd("".to_string());
+        parser.set_args(vec![]);
+
         if let Err(e) = parser.parse_cmd(input) {
             println!("{}", e);
             continue;
@@ -22,7 +25,7 @@ fn main() {
 
         let cmd = parser.get_cmd();
 
-        if let Err(e) = parser.parse_args(&input[cmd.len()..input.len()]) {
+        if let Err(e) = parser.parse_args(&input[cmd.len() + 1..input.len()]) {
             println!("{}", e);
             continue;
         }
