@@ -12,7 +12,9 @@ impl Parsing {
     }
 
     pub fn add_arg(&mut self, arg: String) {
-        self.args.push(arg);
+        if !arg.is_empty() {
+            self.args.push(arg);
+        }
     }
 
     pub fn get_cmd(&self) -> String {
@@ -64,25 +66,25 @@ impl Parsing {
     }
 
     pub fn parse_args(&mut self, input: &str) -> Result<(), String> {
-        let mut is_start_with_quotes = false;
+        let mut is_quotes = false;
         let mut arg = String::new();
         let mut quote: char = '"';
 
         for ch in input.chars() {
-            if ch == quote && is_start_with_quotes {
-                is_start_with_quotes = false;
+            if ch == quote && is_quotes {
+                is_quotes = false;
                 self.add_arg(arg.clone());
                 arg.clear();
                 continue;
             }
 
-            if (ch == '"' || ch == '\'') && !is_start_with_quotes {
+            if (ch == '"' || ch == '\'') && !is_quotes {
                 quote = ch;
-                is_start_with_quotes = true;
+                is_quotes = true;
                 continue;
             }
 
-            if ch == ' ' && !is_start_with_quotes && !arg.is_empty() {
+            if ch == ' ' && !is_quotes && !arg.is_empty() {
                 self.add_arg(arg.clone().trim().to_string());
                 arg.clear();
                 continue;
