@@ -12,7 +12,7 @@ impl Parsing {
     }
 
     pub fn add_arg(&mut self, arg: String) {
-        self.args.push(arg.trim().to_string());
+        self.args.push(arg);
     }
 
     pub fn get_cmd(&self) -> String {
@@ -23,7 +23,7 @@ impl Parsing {
         self.args.clone()
     }
 
-    pub fn set_cmd(&mut self, input: &str) -> Result<(), String> {
+    pub fn parse_cmd(&mut self, input: &str) -> Result<(), String> {
         let cmds = [
             "cat".to_string(),
             "cd".to_string(),
@@ -55,7 +55,7 @@ impl Parsing {
         Ok(())
     }
 
-    pub fn set_args(&mut self, input: &str) {
+    pub fn parse_args(&mut self, input: &str) -> Result<(), String> {
         let mut is_start_with_quotes = false;
         let mut arg = String::new();
 
@@ -73,7 +73,7 @@ impl Parsing {
             }
 
             if ch == ' ' && !is_start_with_quotes && !arg.is_empty() {
-                self.add_arg(arg.clone());
+                self.add_arg(arg.clone().trim().to_string());
                 arg.clear();
                 continue;
             }
@@ -85,6 +85,6 @@ impl Parsing {
             self.args.push(arg.clone().trim().to_string());
         }
 
-        println!("=>> {:?}", self.args);
+        Ok(())
     }
 }

@@ -15,13 +15,20 @@ fn main() {
 
         let input = input.trim();
 
-        if let Err(e) = parser.set_cmd(input) {
+        if let Err(e) = parser.parse_cmd(input) {
             println!("{}", e);
             continue;
         }
 
         let cmd = parser.get_cmd();
 
-        parser.set_args(&input[cmd.len()..input.len()]);
+        if let Err(e) = parser.parse_args(&input[cmd.len()..input.len()]) {
+            println!("{}", e);
+            continue;
+        }
+
+        let args = parser.get_args();
+
+        println!("{:?}", args);
     }
 }
