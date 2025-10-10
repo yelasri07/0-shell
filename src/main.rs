@@ -25,10 +25,7 @@ fn main() {
 
         let cmd = parser.get_cmd();
 
-        if let Err(e) = parser.parse_args(&input[cmd.len() + 1..input.len()]) {
-            println!("{}", e);
-            continue;
-        }
+        parser.parse_args(&input[cmd.len() + 1..input.len()]);
 
         let args = parser.get_args();
 

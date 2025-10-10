@@ -1,6 +1,11 @@
+use std::io::{self, Write};
+
 pub struct Parsing {
     cmd: String,
+    arg: String,
     args: Vec<String>,
+    is_quotes: bool,
+    quotes_type: char
 }
 
 impl Parsing {
@@ -8,6 +13,9 @@ impl Parsing {
         Self {
             cmd: String::new(),
             args: vec![],
+            arg: String::new(),
+            is_quotes: false,
+            quotes_type: '"'
         }
     }
 
@@ -65,38 +73,45 @@ impl Parsing {
         Ok(())
     }
 
-    pub fn parse_args(&mut self, input: &str) -> Result<(), String> {
-        let mut is_quotes = false;
-        let mut arg = String::new();
-        let mut quote: char = '"';
-
+    pub fn parse_args(&mut self, input: &str) {
         for ch in input.chars() {
-            if ch == quote && is_quotes {
-                is_quotes = false;
-                self.add_arg(arg.clone());
-                arg.clear();
+            if ch == self.quotes_type && self.is_quotes {
+                self.is_quotes = false;
+                self.add_arg(self.arg.clone());
+                self.arg.clear();
                 continue;
             }
 
-            if (ch == '"' || ch == '\'') && !is_quotes {
-                quote = ch;
-                is_quotes = true;
+            if (ch == '"' || ch == '\'') && !self.is_quotes {
+                self.quotes_type = ch;
+                self.is_quotes = true;
                 continue;
             }
 
-            if ch == ' ' && !is_quotes && !arg.is_empty() {
-                self.add_arg(arg.clone().trim().to_string());
-                arg.clear();
+            if ch == ' ' && !self.is_quotes && !self.arg.is_empty() {
+                self.add_arg(self.arg.clone().trim().to_string());
+                self.arg.clear();
                 continue;
             }
 
-            arg.push(ch);
+            if ch != ' ' || (ch == ' ' && self.is_quotes) {
+                self.arg.push(ch);
+            }
+        }
+        
+        if !self.arg.is_empty() && !self.is_quotes {
+            self.add_arg(self.arg.clone().trim().to_string());
         }
 
-        if !arg.is_empty() {
-            self.args.push(arg.clone().trim().to_string());
-        }
+        if self.is_quotes {
+            print!("> ");
+            io::stdout().flush().unwrap();
 
-        Ok(())
+            let mut ipt = String::new();
+            io::stdin().read_line(&mut ipt).unwrap();
+
+            self.parse_args(&ipt);
+        }
+        
     }
 }
