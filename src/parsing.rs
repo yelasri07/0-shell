@@ -41,6 +41,10 @@ impl Parsing {
         self.args = value;
     }
 
+    pub fn set_arg(&mut self, value: String) {
+        self.arg = value
+    }
+
     pub fn parse_cmd(&mut self, input: &str) -> Result<(), String> {
         let cmds = [
             "cat".to_string(),
@@ -107,10 +111,14 @@ impl Parsing {
             print!("> ");
             io::stdout().flush().unwrap();
 
-            let mut ipt = String::new();
-            io::stdin().read_line(&mut ipt).unwrap();
+            let mut input = String::new();
+            io::stdin().read_line(&mut input).unwrap();
 
-            self.parse_args(&ipt);
+            input = input.trim().to_string();
+
+            self.arg.push('\n');
+
+            self.parse_args(&input);
         }
         
     }
