@@ -1,10 +1,11 @@
-mod parsing;
+mod shell;
 use std::io::{self, Write};
+mod commands;
 
-use parsing::*;
+use shell::*;
 
 fn main() {
-    let mut parser = Parsing::new();
+    let mut shell = Shell::new();
 
     loop {
         print!("$ ");
@@ -15,21 +16,19 @@ fn main() {
 
         let input = input.trim();
 
-        parser.set_cmd("".to_string());
-        parser.set_args(vec![]);
-        parser.set_arg("".to_string());
+        shell.set_cmd("".to_string());
+        shell.set_args(vec![]);
+        shell.set_arg("".to_string());
 
-        if let Err(e) = parser.parse_cmd(input) {
+        if let Err(e) = shell.parse_cmd(input) {
             println!("{}", e);
             continue;
         }
 
-        let cmd = parser.get_cmd();
+        let cmd: &str = &shell.get_cmd();
 
-        parser.parse_args(&input[cmd.len()..input.len()]);
+        shell.parse_args(&input[cmd.len()..input.len()]);
 
-        let args = parser.get_args();
-
-        println!("{:?}", args);
+        shell.run();
     }
 }

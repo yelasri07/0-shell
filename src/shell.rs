@@ -1,21 +1,23 @@
 use std::io::{self, Write};
 
-pub struct Parsing {
+use crate::commands::*;
+
+pub struct Shell {
     cmd: String,
     arg: String,
     args: Vec<String>,
     is_quotes: bool,
-    quotes_type: char
+    quotes_type: char,
 }
 
-impl Parsing {
+impl Shell {
     pub fn new() -> Self {
         Self {
             cmd: String::new(),
             args: vec![],
             arg: String::new(),
             is_quotes: false,
-            quotes_type: '"'
+            quotes_type: '"',
         }
     }
 
@@ -27,10 +29,6 @@ impl Parsing {
 
     pub fn get_cmd(&self) -> String {
         self.cmd.clone()
-    }
-
-    pub fn get_args(&self) -> Vec<String> {
-        self.args.clone()
     }
 
     pub fn set_cmd(&mut self, value: String) {
@@ -102,7 +100,7 @@ impl Parsing {
                 self.arg.push(ch);
             }
         }
-        
+
         if !self.arg.is_empty() && !self.is_quotes {
             self.add_arg(self.arg.clone().trim().to_string());
         }
@@ -120,6 +118,23 @@ impl Parsing {
 
             self.parse_args(&input);
         }
-        
+    }
+
+    pub fn run(&self) {
+        let cmd: &str = &self.cmd;
+        let args = self.args.clone();
+
+        match cmd {
+            "cat" => cat_handler(args),
+            "cd" => cd_handler(args),
+            "cp" => cp_handler(args),
+            "echo" => echo_handler(args),
+            "exit" => exit_handler(args),
+            "ls" => ls_handler(args),
+            "mkdir" => mkdir_handler(args),
+            "mv" => mv_handler(args),
+            "pwd" => pwd_handler(args),
+            _ => rm_handler(args),
+        }
     }
 }
