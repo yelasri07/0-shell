@@ -1,11 +1,25 @@
 use std::fs;
-use std::io::Read;
+use std::io::{self, BufRead, Read, Write};
 
 pub fn cat_handler(args: Vec<String>) {
     // println!("DEBUG => args = {:?}", args);
 
     if args.is_empty() {
-        eprintln!("Usage: cat <filename>");
+        // eprintln!("Usage: cat <filename>");
+        let stdin = io::stdin();
+        let mut stdout = io::stdout();
+
+        for line in stdin.lock().lines() {
+            match line {
+                Ok(content) => {
+                    writeln!(stdout, "{}", content).unwrap();
+                }
+                Err(e) => {
+                    eprintln!("cat: error reading from stdin: {}", e);
+                    break;
+                }
+            }
+        }
         return;
     }
 
