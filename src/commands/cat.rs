@@ -22,6 +22,9 @@ pub fn cat_handler(args: Vec<String>) {
                 } else {
                     //println!("DEBUG: read ok, printing content");
                     print!("{}", contents);
+                    if !contents.ends_with('\n') {
+                        println!();
+                    }
                 }
             }
 
