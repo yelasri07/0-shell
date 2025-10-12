@@ -1,6 +1,8 @@
 mod shell;
-use std::io::{self, Write};
 mod commands;
+mod read_line;
+
+use read_line::*;
 
 use shell::*;
 
@@ -8,13 +10,7 @@ fn main() {
     let mut shell = Shell::new();
 
     loop {
-        print!("$ ");
-        io::stdout().flush().unwrap();
-
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap();
-
-        let input = input.trim();
+        let input: &str = &read_line("$ ");
 
         shell.set_cmd("".to_string());
         shell.set_args(vec![]);

@@ -1,6 +1,4 @@
-use std::io::{self, Write};
-
-use crate::commands::*;
+use crate::{commands::*, read_line::read_line};
 
 pub struct Shell {
     cmd: String,
@@ -106,16 +104,8 @@ impl Shell {
         }
 
         if self.is_quotes {
-            print!("> ");
-            io::stdout().flush().unwrap();
-
-            let mut input = String::new();
-            io::stdin().read_line(&mut input).unwrap();
-
-            input = input.trim().to_string();
-
+            let input = read_line("> ");
             self.arg.push('\n');
-
             self.parse_args(&input);
         }
     }
