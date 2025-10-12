@@ -34,7 +34,7 @@ impl Shell {
     pub fn get_cmd_len(&self) -> usize {
         self.cmd_length
     }
- 
+
     pub fn set_cmd(&mut self, value: String) {
         self.cmd = value
     }
@@ -95,11 +95,13 @@ impl Shell {
     }
 
     pub fn parse_args(&mut self, input: &str) {
-        for ch in input.chars() {
+        for (i, ch) in input.chars().enumerate() {
             if ch == self.quotes_type && self.is_quotes {
                 self.is_quotes = false;
-                self.add_arg(self.arg.clone());
-                self.arg.clear();
+                if input.chars().nth(i + 1).unwrap_or(' ') == ' ' {
+                    self.add_arg(self.arg.clone());
+                    self.arg.clear();
+                }
                 continue;
             }
 
