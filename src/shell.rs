@@ -1,7 +1,8 @@
-use crate::{commands::*, read_line::read_line};
+use crate::{commands::*, utils::read_line};
 
 pub struct Shell {
     cmd: String,
+    cmd_length: usize,
     arg: String,
     args: Vec<String>,
     is_quotes: bool,
@@ -12,6 +13,7 @@ impl Shell {
     pub fn new() -> Self {
         Self {
             cmd: String::new(),
+            cmd_length: 0,
             args: vec![],
             arg: String::new(),
             is_quotes: false,
@@ -29,6 +31,10 @@ impl Shell {
         self.cmd.clone()
     }
 
+    pub fn get_cmd_len(&self) -> usize {
+        self.cmd_length
+    }
+ 
     pub fn set_cmd(&mut self, value: String) {
         self.cmd = value
     }
@@ -55,20 +61,35 @@ impl Shell {
             "rm".to_string(),
         ];
 
-        let mut flag = String::new();
         for ch in input.chars() {
-            if ch == ' ' {
+            if (ch == '\'' || ch == '"') && !self.is_quotes {
+                self.quotes_type = ch;
+                self.is_quotes = true;
+                self.cmd_length = 2;
+                continue;
+            }
+
+            if ch == self.quotes_type {
+                self.is_quotes = false;
+                continue;
+            }
+
+            if ch == ' ' && !self.is_quotes {
                 break;
             }
 
-            flag.push(ch);
+            self.cmd.push(ch);
         }
 
-        if !cmds.contains(&flag) {
-            return Err(format!("Command {} not found", flag));
+        if self.is_quotes {
+            let input = read_line("> ");
+            self.cmd.push('\n');
+            let _ = self.parse_cmd(&input);
         }
 
-        self.cmd = flag;
+        if !cmds.contains(&self.cmd) {
+            return Err(format!("Command {} not found", self.cmd));
+        }
 
         Ok(())
     }

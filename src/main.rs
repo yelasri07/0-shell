@@ -1,8 +1,8 @@
 mod shell;
 mod commands;
-mod read_line;
+mod utils;
 
-use read_line::*;
+use utils::*;
 
 use shell::*;
 
@@ -22,8 +22,9 @@ fn main() {
         }
 
         let cmd: &str = &shell.get_cmd();
+        let cmd_len = shell.get_cmd_len();
 
-        shell.parse_args(&input[cmd.len()..input.len()]);
+        shell.parse_args(&input[cmd.len() + cmd_len..input.len()]);
 
         shell.run();
     }
