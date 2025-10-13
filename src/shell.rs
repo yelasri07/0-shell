@@ -77,7 +77,7 @@ impl Shell {
             if ch == ' ' && !self.is_quotes {
                 break;
             }
-
+            
             self.cmd.push(ch);
         }
 
