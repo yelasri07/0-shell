@@ -8,6 +8,7 @@ pub struct Shell {
     is_quotes: bool,
     quotes_type: char,
     prev_path: String,
+    pub current_path: String,
 }
 
 impl Shell {
@@ -20,6 +21,7 @@ impl Shell {
             is_quotes: false,
             quotes_type: '"',
             prev_path: String::new(),
+            current_path: String::new(),
         }
     }
 
@@ -51,6 +53,10 @@ impl Shell {
 
     pub fn set_arg(&mut self, value: String) {
         self.arg = value
+    }
+
+    pub fn set_current_path(&mut self, value: String) {
+        self.current_path = value
     }
 
     pub fn parse_cmd(&mut self, input: &str) -> Result<(), String> {
@@ -145,7 +151,11 @@ impl Shell {
 
         match cmd {
             "cat" => cat_handler(args),
-            "cd" => self.prev_path = cd_handler(args, &self.prev_path).trim_matches('"').to_string(),
+            "cd" => {
+                self.prev_path = cd_handler(args, &self.prev_path)
+                    .trim_matches('"')
+                    .to_string()
+            }
             "cp" => cp_handler(args),
             "echo" => echo_handler(args),
             "exit" => exit_handler(args),
