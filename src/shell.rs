@@ -41,6 +41,10 @@ impl Shell {
         self.cmd = value
     }
 
+    pub fn set_cmd_len(&mut self, value: usize) {
+        self.cmd_length = value
+    }
+
     pub fn set_args(&mut self, value: Vec<String>) {
         self.args = value;
     }

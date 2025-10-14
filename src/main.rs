@@ -15,6 +15,7 @@ fn main() {
         shell.set_cmd("".to_string());
         shell.set_args(vec![]);
         shell.set_arg("".to_string());
+        shell.set_cmd_len(0);
 
         if let Err(e) = shell.parse_cmd(input) {
             println!("{}", e);
