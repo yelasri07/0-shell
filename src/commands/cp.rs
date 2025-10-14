@@ -69,7 +69,7 @@ impl Cp {
                 let mut output = File::create(&dest_path)?;
                 io::copy(&mut input, &mut output)?;
             } else if meta.is_dir() {
-                // recursive call via Self::
+                
                 Self::copy_dir_recursive(&child, &dest_path)?;
             }
         }
