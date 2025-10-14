@@ -24,7 +24,6 @@ impl Cp {
         fs::read_to_string(&self.cible)
     }
 
-    /// Copy one file’s content into all destinations
     pub fn exec(&self, content: String) -> io::Result<()> {
         for dest in &self.destinations {
             match get_file_state(dest) {
@@ -52,7 +51,6 @@ impl Cp {
         Ok(())
     }
 
-    /// Recursive directory copy (binary-safe, handles non-UTF-8 paths)
     pub fn copy_dir_recursive(src: &Path, dest: &Path) -> io::Result<()> {
         if !dest.exists() {
             fs::create_dir_all(dest)?;
