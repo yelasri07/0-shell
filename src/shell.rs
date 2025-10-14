@@ -79,7 +79,7 @@ impl Shell {
             if ch == ' ' && !self.is_quotes {
                 break;
             }
-            
+
             self.cmd.push(ch);
         }
 
@@ -141,7 +141,7 @@ impl Shell {
 
         match cmd {
             "cat" => cat_handler(args),
-            "cd" => self.prev_path = cd_handler(args, &self.prev_path),
+            "cd" => self.prev_path = cd_handler(args, &self.prev_path).trim_matches('"').to_string(),
             "cp" => cp_handler(args),
             "echo" => echo_handler(args),
             "exit" => exit_handler(args),
