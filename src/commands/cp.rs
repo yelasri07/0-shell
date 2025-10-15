@@ -6,8 +6,8 @@ use std::{
 
 #[derive(Debug, Clone)]
 pub struct Cp {
-    pub options: Vec<String>,
-    pub target: String,
+    pub options: Vec<String>, // fichiers sources
+    pub target: String,       // destination
 }
 
 impl Cp {
@@ -18,31 +18,33 @@ impl Cp {
         }
     }
 
-    pub fn exec(&self, content: String) -> io::Result<()> {
-        let src = self.options[0].clone();
-        match get_file_state(&src) {
+    pub fn exec(src_path: &Path, dest_path: &Path, content: String) -> io::Result<()> {
+        // Vérifie le statut de la destination
+        match fs::metadata(dest_path) {
             Ok(meta) => {
                 if meta.is_file() {
-                    let mut file = File::create(&self.target)?;
-                    file.write(content.as_bytes())?;
+                    // Destination est un fichier → on écrase
+                    let mut file = File::create(dest_path)?;
+                    file.write_all(content.as_bytes())?;
                 } else if meta.is_dir() {
-                    let file_name = Path::new(&src)
+                    // Destination est un dossier → on copie le fichier dedans
+                    let file_name = src_path
                         .file_name()
                         .map(|n| n.to_string_lossy().to_string())
                         .unwrap_or_else(|| "unknown".to_string());
-                    let new_path = Path::new(&self.target).join(file_name);
+                    let new_path = dest_path.join(file_name);
                     let mut file = File::create(&new_path)?;
                     file.write_all(content.as_bytes())?;
                 }
             }
             Err(_) => {
-                let mut file = File::create(&src)?;
+                // Si la destination n'existe pas → créer un fichier
+                let mut file = File::create(dest_path)?;
                 file.write_all(content.as_bytes())?;
             }
         }
         Ok(())
     }
-
     pub fn copy_dir_recursive(src: &Path, dest: &Path) -> io::Result<()> {
         if !dest.exists() {
             fs::create_dir_all(dest)?;
@@ -61,6 +63,7 @@ impl Cp {
                 let mut output = File::create(&dest_path)?;
                 io::copy(&mut input, &mut output)?;
             } else if meta.is_dir() {
+                // recursive call via Self::
                 Self::copy_dir_recursive(&child, &dest_path)?;
             }
         }
@@ -70,36 +73,69 @@ impl Cp {
 }
 
 pub fn cp_handler(args: Vec<String>) {
-    if args.is_empty() {
+    if args.len() < 2 {
+        eprintln!("cp: missing file operand");
         return;
     }
 
     let mut cp = Cp::new();
-    cp.target = args[args.len() - 1].clone();
-    for i in 0..args.len() - 1 {
-        cp.options.push(args[i].clone());
-    }
+    cp.target = args.last().unwrap().clone();
+    cp.options = args[..args.len() - 1].to_vec();
 
-    let metadata = get_file_state(&cp.target);
-    if metadata.is_err() {
-        eprintln!("cp: cannot stat '{}': No such file or directory", cp.target);
+    let dest_meta = fs::metadata(&cp.target);
+
+    // Si la destination n'existe pas
+    if dest_meta.is_err() {
+        // Si plusieurs sources → erreur
+        if cp.options.len() > 1 {
+            eprintln!("cp: target '{}' is not a directory", cp.target);
+            return;
+        }
+
+        // Sinon on crée le fichier destination et on copie
+        if let Ok(content) = read_file(&cp.options[0]) {
+            let src_path = Path::new(&cp.options[0]);
+            let dest_path = Path::new(&cp.target);
+            if src_path == dest_path {
+                eprintln!(
+                    "cp: '{}' and '{}' are the same file",
+                    cp.options[0], cp.target
+                );
+                return;
+            }
+            if let Err(err) = Cp::exec(src_path, dest_path, content) {
+                eprintln!("cp: error copying file: {}", err);
+            }
+        } else {
+            eprintln!("cp: cannot read file '{}'", cp.options[0]);
+        }
         return;
     }
 
-    let target = metadata.unwrap();
+    let target = dest_meta.unwrap();
 
     if target.is_file() {
         if cp.options.len() != 1 {
             eprintln!("cp: target '{}' is not a directory", cp.target);
             return;
         }
-        match read_file(&cp.options[0]) {
-            Ok(content) => {
-                if let Err(err) = cp.exec(content) {
-                    eprintln!("cp: error copying file: {}", err);
-                }
+
+        let src_path = Path::new(&cp.options[0]);
+        let dest_path = Path::new(&cp.target);
+
+        if let Ok(content) = read_file(&cp.options[0]) {
+            if src_path == dest_path {
+                eprintln!(
+                    "cp: '{}' and '{}' are the same file",
+                    cp.options[0], cp.target
+                );
+                return;
             }
-            Err(err) => eprintln!("cp: error reading '{}': {}", cp.options[0], err),
+            if let Err(err) = Cp::exec(src_path, dest_path, content) {
+                eprintln!("cp: error copying file: {}", err);
+            }
+        } else {
+            eprintln!("cp: cannot read file '{}'", cp.options[0]);
         }
     }
 
@@ -107,10 +143,14 @@ pub fn cp_handler(args: Vec<String>) {
         for opt in cp.options.iter() {
             let src_path = Path::new(opt);
             let dest_path = Path::new(&cp.target);
-            println!("{:?} =>{:?}", dest_path, src_path);
             let new_src_dir = if src_path.is_dir() {
                 dest_path.join(src_path.file_name().unwrap())
             } else {
+                if let Ok(content) = read_file(opt) {
+                    if let Err(err) = Cp::exec(src_path, dest_path, content) {
+                        eprintln!("cp: error copying file: {}", err);
+                    }
+                }
                 PathBuf::from(opt)
             };
 
@@ -120,10 +160,6 @@ pub fn cp_handler(args: Vec<String>) {
             }
         }
     }
-}
-
-pub fn get_file_state<P: AsRef<Path>>(path: P) -> io::Result<fs::Metadata> {
-    fs::metadata(path)
 }
 
 pub fn direct_children(dir: &Path) -> Vec<PathBuf> {
