@@ -94,7 +94,7 @@ impl Shell {
         }
 
         if self.is_quotes {
-            let input = read_line("> ");
+            let input = read_line(">");
             self.cmd.push('\n');
             let _ = self.parse_cmd(&input);
         }
@@ -139,7 +139,7 @@ impl Shell {
         }
 
         if self.is_quotes {
-            let input = read_line("> ");
+            let input = read_line(">");
             self.arg.push('\n');
             self.parse_args(&input);
         }

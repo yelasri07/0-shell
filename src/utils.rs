@@ -1,7 +1,9 @@
 use std::{env, io::{self, Write}};
 
+use colored::Colorize;
+
 pub fn read_line(path: &str) -> String {
-    print!("{}", path);
+    print!("{} ", path.red().bold());
     io::stdout().flush().unwrap();
 
     let mut input = String::new();
