@@ -1,22 +1,46 @@
 use std::fs;
 use std::io;
+use std::collections::HashSet;
 
 // ls a file
 // ls a dir
 // ls mutiple 
 
-#[derive(Debug,Default)]
 
-pub fn handle_ls(args: Vec<String>) {
-    let flags = args.iter().filter(|arg| arg.starts_with("-")) ;
-    let entities =  args.iter().filter(|arg| !arg.starts_with("-"))  ;
-    // println
+pub fn ls_handler(args: Vec<String>, current_path: String) {
+    let valid_flags: Vec<char> = vec!['l', 'a', 'F'];
 
-    get_meta_data(".".to_string());
+    let mut flags = HashSet::new();
+    let mut entities = Vec::new();
+
+    for arg in args {
+        if arg.starts_with('-') {
+            for ch in arg.chars().skip(1) {
+                if !valid_flags.contains(&ch) {
+                    eprintln!("ls: invalid option -- '{}'", ch);
+                    break;
+                }
+                flags.insert(ch);
+            }
+        } else {
+            entities.push(arg);
+        }
+    }
+
+    if entities.is_empty() {
+        entities.push(current_path.clone());
+    }
+
+
+    println!("Current Path: {}", current_path);
+    println!("Flags: {:?}", flags);
+    println!("Files and folders: {:?}", entities);
+
+    // get_meta_data(".".to_string());
 }
 
 fn is_valid_flags(flags: String) -> bool {
-    let valid_flags = ["a","l","F"];
+    let _valid_flags = ["a","l","F"];
     for flag in flags.split("") {
         println!("flag : {:?}", flag);
     }
