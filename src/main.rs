@@ -12,7 +12,7 @@ fn main() {
     loop {
         shell.set_current_path(get_current_dir());
 
-        let input: &str = &read_line(&(shell.current_path.as_str().to_owned() + "$ "));
+        let input: &str = &read_line(&("~".to_owned() + shell.current_path.as_str() + "$ "));
 
         shell.set_cmd("".to_string());
         shell.set_args(vec![]);
