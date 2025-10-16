@@ -1,13 +1,13 @@
 use std::{
     fs::{self, File},
-    io::{self, Write},
+    io::{self},
     path::{Path, PathBuf},
 };
 
 #[derive(Debug, Clone)]
 pub struct Cp {
-    pub options: Vec<String>, // fichiers sources
-    pub target: String,       // destination
+    pub options: Vec<String>,
+    pub target: String,
 }
 
 impl Cp {
@@ -18,29 +18,28 @@ impl Cp {
         }
     }
 
-    pub fn exec(src_path: &Path, dest_path: &Path, content: String) -> io::Result<()> {
-        // Vérifie le statut de la destination
+    pub fn exec(src_path: &Path, dest_path: &Path) -> io::Result<()> {
         match fs::metadata(dest_path) {
             Ok(meta) => {
                 if meta.is_file() {
-                    // Destination est un fichier → on écrase
-                    let mut file = File::create(dest_path)?;
-                    file.write_all(content.as_bytes())?;
+                    if let Err(err) = fs::copy(&src_path, dest_path) {
+                        return Err(err);
+                    }
                 } else if meta.is_dir() {
-                    // Destination est un dossier → on copie le fichier dedans
                     let file_name = src_path
                         .file_name()
                         .map(|n| n.to_string_lossy().to_string())
                         .unwrap_or_else(|| "unknown".to_string());
                     let new_path = dest_path.join(file_name);
-                    let mut file = File::create(&new_path)?;
-                    file.write_all(content.as_bytes())?;
+                    if let Err(err) = fs::copy(&src_path, new_path) {
+                        return Err(err);
+                    }
                 }
             }
             Err(_) => {
-                // Si la destination n'existe pas → créer un fichier
-                let mut file = File::create(dest_path)?;
-                file.write_all(content.as_bytes())?;
+                if let Err(err) = fs::copy(&src_path, dest_path) {
+                    return Err(err);
+                }
             }
         }
         Ok(())
@@ -63,7 +62,6 @@ impl Cp {
                 let mut output = File::create(&dest_path)?;
                 io::copy(&mut input, &mut output)?;
             } else if meta.is_dir() {
-                // recursive call via Self::
                 Self::copy_dir_recursive(&child, &dest_path)?;
             }
         }
@@ -84,31 +82,26 @@ pub fn cp_handler(args: Vec<String>) {
 
     let dest_meta = fs::metadata(&cp.target);
 
-    // Si la destination n'existe pas
     if dest_meta.is_err() {
-        // Si plusieurs sources → erreur
         if cp.options.len() > 1 {
             eprintln!("cp: target '{}' is not a directory", cp.target);
             return;
         }
 
-        // Sinon on crée le fichier destination et on copie
-        if let Ok(content) = read_file(&cp.options[0]) {
-            let src_path = Path::new(&cp.options[0]);
-            let dest_path = Path::new(&cp.target);
-            if src_path == dest_path {
-                eprintln!(
-                    "cp: '{}' and '{}' are the same file",
-                    cp.options[0], cp.target
-                );
-                return;
-            }
-            if let Err(err) = Cp::exec(src_path, dest_path, content) {
-                eprintln!("cp: error copying file: {}", err);
-            }
-        } else {
-            eprintln!("cp: cannot read file '{}'", cp.options[0]);
+        let src_path = Path::new(&cp.options[0]);
+        let dest_path = Path::new(&cp.target);
+        if src_path == dest_path {
+            eprintln!(
+                "cp: '{}' and '{}' are the same file",
+                cp.options[0], cp.target
+            );
+            return;
         }
+        if let Err(err) = Cp::exec(src_path, dest_path) {
+            
+            eprintln!("cp: error copying file: {}", err);
+        }
+
         return;
     }
 
@@ -123,19 +116,16 @@ pub fn cp_handler(args: Vec<String>) {
         let src_path = Path::new(&cp.options[0]);
         let dest_path = Path::new(&cp.target);
 
-        if let Ok(content) = read_file(&cp.options[0]) {
-            if src_path == dest_path {
-                eprintln!(
-                    "cp: '{}' and '{}' are the same file",
-                    cp.options[0], cp.target
-                );
-                return;
-            }
-            if let Err(err) = Cp::exec(src_path, dest_path, content) {
-                eprintln!("cp: error copying file: {}", err);
-            }
-        } else {
-            eprintln!("cp: cannot read file '{}'", cp.options[0]);
+        if src_path == dest_path {
+            eprintln!(
+                "cp: '{}' and '{}' are the same file",
+                cp.options[0], cp.target
+            );
+            return;
+        }
+        if let Err(err) = Cp::exec(src_path, dest_path) {
+            eprintln!("cp: error copying file: {}", err);
+            return;
         }
     }
 
@@ -146,11 +136,12 @@ pub fn cp_handler(args: Vec<String>) {
             let new_src_dir = if src_path.is_dir() {
                 dest_path.join(src_path.file_name().unwrap())
             } else {
-                if let Ok(content) = read_file(opt) {
-                    if let Err(err) = Cp::exec(src_path, dest_path, content) {
-                        eprintln!("cp: error copying file: {}", err);
-                    }
+                if let Err(err) = Cp::exec(src_path, dest_path) {
+                    println!("zzzz");
+                    eprintln!("cp: error copying file: {}", err);
+                    return;
                 }
+
                 PathBuf::from(opt)
             };
 
@@ -170,7 +161,4 @@ pub fn direct_children(dir: &Path) -> Vec<PathBuf> {
         }
     }
     children
-}
-pub fn read_file(file: &String) -> io::Result<String> {
-    fs::read_to_string(file)
 }

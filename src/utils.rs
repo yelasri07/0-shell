@@ -1,4 +1,7 @@
-use std::{env, io::{self, Write}};
+use std::{
+    env,
+    io::{self, Write},
+};
 
 use colored::Colorize;
 
@@ -21,3 +24,4 @@ pub fn get_current_dir() -> String {
         }
     }
 }
+
