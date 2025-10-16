@@ -28,6 +28,9 @@ fn main() {
         }
 
         let cmd: &str = &shell.get_cmd();
+        if cmd == "exit" {
+            break;
+        }
         let cmd_len = shell.get_cmd_len();
 
         shell.parse_args(&input[cmd.len() + cmd_len..input.len()]);
