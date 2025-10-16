@@ -83,10 +83,7 @@ pub fn cp_handler(args: Vec<String>) {
     let dest_meta = fs::metadata(&cp.target);
 
     if dest_meta.is_err() {
-        if cp.options.len() > 1 {
-            eprintln!("cp: target '{}' is not a directory", cp.target);
-            return;
-        }
+       
 
         let src_path = Path::new(&cp.options[0]);
         let dest_path = Path::new(&cp.target);
