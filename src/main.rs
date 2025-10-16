@@ -1,5 +1,5 @@
-mod shell;
 mod commands;
+mod shell;
 mod utils;
 
 use utils::*;
@@ -12,14 +12,17 @@ fn main() {
     loop {
         shell.set_current_path(get_current_dir());
 
-        let input: &str = &read_line(&("~".to_owned() + shell.current_path.as_str() + "$"));
-
+        let (input,n_bytes) = read_line(&("~".to_owned() + shell.current_path.as_str() + "$"));
+        if n_bytes == 0 {
+            println!();
+            break;
+        }
         shell.set_cmd("".to_string());
         shell.set_args(vec![]);
         shell.set_arg("".to_string());
         shell.set_cmd_len(0);
 
-        if let Err(e) = shell.parse_cmd(input) {
+        if let Err(e) = shell.parse_cmd(input.as_str()) {
             println!("{}", e);
             continue;
         }

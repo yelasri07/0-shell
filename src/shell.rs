@@ -94,9 +94,16 @@ impl Shell {
         }
 
         if self.is_quotes {
-            let input = read_line(">");
+            let (input, n_bytes) = read_line(">");
+            if n_bytes == 0 {
+                self.is_quotes = false;
+                return Err(format!(
+                    "\nbash: unexpected EOF while looking for matching `{}'\nbash: syntax error: unexpected end of file",
+                    self.quotes_type
+                ));
+            }
             self.cmd.push('\n');
-            let _ = self.parse_cmd(&input);
+            let _ = self.parse_cmd(input.as_str());
         }
 
         if !cmds.contains(&self.cmd) {
@@ -139,9 +146,17 @@ impl Shell {
         }
 
         if self.is_quotes {
-            let input = read_line(">");
+            let (input, n_bytes) = read_line(">");
+            if n_bytes == 0 {
+                self.is_quotes = false;
+                eprintln!(
+                    "\nbash: unexpected EOF while looking for matching `{}'\nbash: syntax error: unexpected end of file",
+                    self.quotes_type
+                );
+                return;
+            }
             self.arg.push('\n');
-            self.parse_args(&input);
+            self.parse_args(input.as_str());
         }
     }
 

@@ -5,14 +5,14 @@ use std::{
 
 use colored::Colorize;
 
-pub fn read_line(path: &str) -> String {
+pub fn read_line(path: &str) -> (String,usize) {
     print!("{} ", path.blue().bold());
     io::stdout().flush().unwrap();
 
     let mut input = String::new();
-    io::stdin().read_line(&mut input).unwrap();
-
-    input.trim().to_string()
+    let n_bytes=io::stdin().read_line(&mut input).unwrap();
+    
+    (input.trim().to_string(),n_bytes)
 }
 
 pub fn get_current_dir() -> String {
@@ -24,4 +24,3 @@ pub fn get_current_dir() -> String {
         }
     }
 }
-
