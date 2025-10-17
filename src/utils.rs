@@ -6,7 +6,7 @@ use std::{
 use colored::Colorize;
 
 pub fn read_line(path: &str) -> (String,usize) {
-    print!("{} ", path.blue().bold());
+    print!("{} ", path.blue().underline().bold());
     io::stdout().flush().unwrap();
 
     let mut input = String::new();

@@ -23,7 +23,7 @@ fn main() {
 
         shell.parse_input(input.as_str());
 
-        // println!("{:?}", shell.args);
+        println!("=>>{:?}", shell.args);
 
         shell.run();
     }

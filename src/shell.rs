@@ -6,6 +6,7 @@ pub struct Shell {
     is_quotes: bool,
     quotes_type: char,
     prev_path: String,
+    is_backslash: bool,
     pub current_path: String,
 }
 
@@ -18,6 +19,7 @@ impl Shell {
             args: vec![],
             quotes_type: '"',
             is_quotes: false,
+            is_backslash: false,
         }
     }
 
@@ -41,6 +43,20 @@ impl Shell {
 
     pub fn parse_input(&mut self, input: &str) {
         for (i, ch) in input.chars().enumerate() {
+            if self.is_backslash {
+                if (ch != '$' && ch != '`' && ch != '"' && ch != '\\') && self.is_quotes {
+                    self.arg.push('\\');
+                }
+                self.arg.push(ch);
+                self.is_backslash = false;
+                continue;
+            }
+
+            if ch == '\\' && self.quotes_type != '\'' {
+                self.is_backslash = true;
+                continue;
+            }
+
             if (ch == '"' || ch == '\'') && !self.is_quotes {
                 self.quotes_type = ch;
                 self.is_quotes = true;
@@ -67,16 +83,28 @@ impl Shell {
             }
         }
 
+        if self.is_backslash {
+            self.is_backslash = false;
+            let (input, _) = read_line(">");
+            self.parse_input(input.as_str());
+        }
+
         if !self.arg.is_empty() && !self.is_quotes {
             self.add_arg(self.arg.clone().trim().to_string());
+            self.arg.clear();
         }
 
         if self.is_quotes {
-            let (input, n_bytes) = read_line(">");
+            let quote_text = if self.quotes_type == '\'' {
+                "quote>"
+            } else {
+                "dquote>"
+            };
+            let (input, n_bytes) = read_line(quote_text);
             if n_bytes == 0 {
                 self.is_quotes = false;
                 eprintln!(
-                    "\nbash: unexpected EOF while looking for matching `{}'\nbash: syntax error: unexpected end of file",
+                    "\nunexpected EOF while looking for matching `{}'\nsyntax error: unexpected end of file",
                     self.quotes_type
                 );
                 return;
@@ -102,7 +130,7 @@ impl Shell {
 
         let empty_cmd = &"".to_string();
         let cmd: &str = &self.args.iter().next().unwrap_or(empty_cmd);
-        
+
         if cmd.is_empty() {
             return;
         }
@@ -111,7 +139,7 @@ impl Shell {
             println!("Command {} not found", cmd);
             return;
         }
-        
+
         let args: Vec<String> = if self.args.len() > 1 {
             self.args[1..self.args.len()].to_vec()
         } else {
