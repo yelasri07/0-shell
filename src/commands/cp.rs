@@ -134,7 +134,6 @@ pub fn cp_handler(args: Vec<String>) {
                 dest_path.join(src_path.file_name().unwrap())
             } else {
                 if let Err(err) = Cp::exec(src_path, dest_path) {
-                    println!("zzzz");
                     eprintln!("cp: error copying file: {}", err);
                     return;
                 }

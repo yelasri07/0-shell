@@ -1,39 +1,51 @@
-use std::{fs, path::Path};
+use std::fs;
+use std::path::Path;
 
 pub fn rm_handler(args: Vec<String>) {
+    println!("{:?}", args);
     if args.is_empty() {
+        eprintln!("Usage: rm [-r] <file_or_directory>");
+        return;
+    }
+
+    let mut dir_flag = false;
+    let mut targets: Vec<String> = Vec::new();
+
+    //check -r flage
+    for arg in args {
+        if arg == "-r" {
+            dir_flag = true;
+        } else {
+            targets.push(arg);
+        }
+    }
+
+    if targets.is_empty() {
         eprintln!("rm: missing operand");
         return;
     }
-    let mut dir_flag = false;
-    for option in args {
-        if option.chars().next().unwrap() == '-' && option == "-r" {
-            dir_flag = true;
+
+    for target in targets {
+        let path = Path::new(&target);
+
+        if !path.exists() {
+            eprintln!("rm: cannot remove '{}': No such file or directory", target);
             continue;
         }
-        let src = Path::new(&option);
-        let meta_data = fs::metadata(src);
-        match meta_data {
-            Ok(data) => {
-                if data.is_file() {
-                    if let Err(e) = fs::remove_file(src) {
-                        eprintln!("rm: {}", e);
-                        continue;
-                    }
-                }
-                if data.is_dir() && dir_flag {
-                    if let Err(e) = fs::remove_dir_all(src) {
-                        eprintln!("rm: {}", e);
-                        continue;
-                    }
-                } else if data.is_dir() && !dir_flag {
-                    eprintln!("rm: cannot remove '{}': Is a directory", option);
-                    continue;
-                }
+
+        if path.is_file() {
+            match fs::remove_file(path) {
+                Ok(_) => (),
+                Err(e) => eprintln!("rm: failed to remove '{}': {}", target, e),
             }
-            Err(err) => {
-                eprintln!("rm: {}", err);
-                continue;
+        } else if path.is_dir() {
+            if dir_flag {
+                match fs::remove_dir_all(path) {
+                    Ok(_) => (),
+                    Err(e) => eprintln!("rm: failed to remove directory '{}': {}", target, e),
+                }
+            } else {
+                eprintln!("rm: cannot remove '{}': Is a directory", target);
             }
         }
     }
