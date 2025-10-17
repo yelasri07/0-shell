@@ -2,6 +2,7 @@ use std::fs;
 use std::path::Path;
 
 pub fn rm_handler(args: Vec<String>) {
+    println!("{:?}", args);
     if args.is_empty() {
         eprintln!("Usage: rm [-r] <file_or_directory>");
         return;
@@ -10,7 +11,7 @@ pub fn rm_handler(args: Vec<String>) {
     let mut dir_flag = false;
     let mut targets: Vec<String> = Vec::new();
 
-    //check -r flage  
+    //check -r flage
     for arg in args {
         if arg == "-r" {
             dir_flag = true;
@@ -37,7 +38,7 @@ pub fn rm_handler(args: Vec<String>) {
                 Ok(_) => (),
                 Err(e) => eprintln!("rm: failed to remove '{}': {}", target, e),
             }
-        }        else if path.is_dir() {
+        } else if path.is_dir() {
             if dir_flag {
                 match fs::remove_dir_all(path) {
                     Ok(_) => (),
