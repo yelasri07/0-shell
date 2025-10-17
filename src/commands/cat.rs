@@ -1,46 +1,51 @@
 use std::fs;
-use std::io::{self, BufRead, Read, Write};
+use std::path::Path;
 
-pub fn cat_handler(args: Vec<String>) {
-    // println!("DEBUG => args = {:?}", args);
-
+pub fn rm_handler(args: Vec<String>) {
     if args.is_empty() {
-        // eprintln!("Usage: cat <filename>");
-        let stdin = io::stdin();
-        let mut stdout = io::stdout();
-
-        for line in stdin.lock().lines() {
-            match line {
-                Ok(content) => {
-                    writeln!(stdout, "{}", content).unwrap();
-                }
-                Err(e) => {
-                    eprintln!("cat: error reading from stdin: {}", e);
-                    break;
-                }
-            }
-        }
+        eprintln!("Usage: rm [-r] <file_or_directory>");
         return;
     }
 
-    for filename in &args {
-        //println!("DEBUG: trying to open {}", filename);
+    let mut dir_flag = false;
+    let mut targets: Vec<String> = Vec::new();
 
-        match fs::File::open(filename) {
-            Ok(mut file) => {
-                //println!("DEBUG: successfully opened {}", filename);
-
-                let mut contents = String::new();
-                if let Err(e) = file.read_to_string(&mut contents) {
-                    eprintln!("Failed to read file '{}': {}", filename, e);
-                } else {
-                    //println!("DEBUG: read ok, printing content");
-                    print!("{}", contents);
-                }
-            }
-
-            Err(e) => eprintln!("Failed to open file '{}': {}", filename, e),
+    //check -r flage  
+    for arg in args {
+        if arg == "-r" {
+            dir_flag = true;
+        } else {
+            targets.push(arg);
         }
     }
-    println!();
+
+    if targets.is_empty() {
+        eprintln!("rm: missing operand");
+        return;
+    }
+
+    for target in targets {
+        let path = Path::new(&target);
+
+        if !path.exists() {
+            eprintln!("rm: cannot remove '{}': No such file or directory", target);
+            continue;
+        }
+
+        if path.is_file() {
+            match fs::remove_file(path) {
+                Ok(_) => (),
+                Err(e) => eprintln!("rm: failed to remove '{}': {}", target, e),
+            }
+        }        else if path.is_dir() {
+            if dir_flag {
+                match fs::remove_dir_all(path) {
+                    Ok(_) => (),
+                    Err(e) => eprintln!("rm: failed to remove directory '{}': {}", target, e),
+                }
+            } else {
+                eprintln!("rm: cannot remove '{}': Is a directory", target);
+            }
+        }
+    }
 }
