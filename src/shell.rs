@@ -156,7 +156,7 @@ impl Shell {
             "cp" => cp_handler(args),
             "echo" => echo_handler(args),
             "exit" => exit_handler(args),
-            "ls" => ls_handler(args),
+            "ls" => ls_handler(args, self.current_path.clone()),
             "mkdir" => mkdir_handler(args),
             "mv" => mv_handler(args),
             "pwd" => pwd_handler(args),

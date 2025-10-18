@@ -1,6 +1,9 @@
+use core::fmt;
+use std::collections::HashSet;
+use std::fmt::Display;
 use std::fs;
+use std::fs::Metadata;
 use std::io;
-use std::collections::{HashSet, HashMap};
 use std::path::{Path, PathBuf};
 
 pub fn ls_handler(args: Vec<String>, current_path: String) {
@@ -11,12 +14,8 @@ pub fn ls_handler(args: Vec<String>, current_path: String) {
 
     for arg in args {
         if !arg.starts_with('-') {
-            if arg == "." {
-                entities.push(current_path.clone());
-            } else {
-                entities.push(arg);
-            }
-            continue
+            entities.push(arg);
+            continue;
         }
 
         for ch in arg.chars().skip(1) {
@@ -33,24 +32,41 @@ pub fn ls_handler(args: Vec<String>, current_path: String) {
     }
 
     entities.sort();
-    list_items(flags.into_iter().collect(),entities , current_path);
+    let flags_vec: Vec<char> = flags.clone().into_iter().collect();
 
+    for (index, entity) in entities.iter().enumerate() {
+        let full_path = if !entity.starts_with("/") {
+            format!("{}/{}", current_path, entity)
+        } else {
+            entity.to_string()
+        };
+
+        if is_dir(full_path.clone()) && entities.len() > 1 {
+            println!("{}:", entity);
+        }
+        list_items(flags_vec.clone(), full_path, entity.to_string());
+
+        println!("");
+        if index != entities.len() - 1 {
+            println!("");
+        }
+    }
 }
 
-#[derive(Debug,Default, Eq, PartialEq, Clone)]
+#[derive(Debug, Default, Eq, PartialEq, Clone)]
 enum EntityType {
-    #[default] File,
+    #[default]
+    File,
     Dir,
-    Executable, 
+    Executable,
     SymLink,
 }
 
-
-#[derive(Debug,Default, Eq, PartialEq, Clone)]
+#[derive(Debug, Default, Eq, PartialEq, Clone)]
 struct Entity {
     path: PathBuf,
     file_type: EntityType,
-    permissions:String,
+    permissions: String,
     uid: String,
     gid: String,
     size: String,
@@ -61,74 +77,88 @@ struct Entity {
 impl Entity {
     fn new(path: PathBuf) -> Self {
         Self {
-            path:path.clone(),
+            path: path.clone(),
             name: path.file_name().unwrap().to_string_lossy().to_string(),
             ..Default::default()
         }
     }
 
-    fn classify(&mut self, _is_long_listing: bool)  {
+    fn classify(&mut self, _is_long_listing: bool) {
         todo!();
     }
 
-    fn metadata(&mut self) {
-        let metadata = fs::symlink_metadata(self.path.clone()).expect("REASON");
-        println!("{metadata:?}");
+    fn long_list(&mut self) {
+        let metadata = self.metadata();
+        self.file_type(metadata);
+        // println!("{metadata:?}");
+    }
+
+    fn file_type(&mut self, metadata: Metadata) {
+        let file_type = metadata.file_type();
+        if file_type.is_dir() {
+            println!("{:?} is a directory", self.path);
+        } else if file_type.is_file() {
+            println!("{:?} is a regular file", self.path);
+        } else if file_type.is_symlink() {
+            println!("{:?} is a symbolic link", self.path);
+        } else {
+            println!("{:?} is an unknown file type", self.path);
+        }
+    }
+
+    fn metadata(&self) -> Metadata {
+        fs::symlink_metadata(self.path.clone()).expect("REASON")
     }
 }
 
-fn list_items(flags:Vec<char>, entities: Vec<String>, current_path: String) {
-    let have_flags = flags.is_empty();
-    let have_entities = entities.is_empty();
+fn list_items(flags: Vec<char>, full_path: String, entity: String) {
+    let mut list: Vec<Entity> = Vec::new();
 
-    let mut entities_to_display: HashMap<String, Vec<Entity>> = HashMap::new();
+    if !path_exists(full_path.clone()) {
+        eprintln!("ls: cannot access '{}': No such file or directory", entity);
+        return;
+    }
 
-    for (index, entity) in entities.iter().enumerate()  {
-        let full_path = if !entity.starts_with("/") {
-            format!("{}/{}", current_path,entity)
-        } else {
-            entity.to_string()
-        };
+    if !is_dir(full_path.clone()) {
+        let file = Path::new(&full_path).to_path_buf();
+        list.push(Entity::new(file));
+    } else {
+        let files = fs::read_dir(&full_path)
+            .unwrap()
+            .map(|res| res.map(|e| e.path()))
+            .collect::<Result<Vec<_>, io::Error>>()
+            .unwrap();
 
-        if !path_exists(full_path.clone()) {
-            eprintln!("ls: cannot access 'target': No such file or directory");
+        list = files.into_iter().map(|p| Entity::new(p)).collect();
+    }
+
+    for (index, file) in list.iter().enumerate() {
+        let mut sep = " ";
+
+        if !flags.contains(&'a') && file.name.starts_with("."){
             continue;
         }
 
-        if is_dir(full_path.clone()) {
-            let files = fs::read_dir(&full_path).unwrap()
-            .map(|res| res.map(|e| e.path()))
-            .collect::<Result<Vec<_>, io::Error>>().unwrap();
-
-            let entities: Vec<Entity> = files.into_iter()
-            .map(|p| Entity::new(p))
-            .collect();
-            entities_to_display.insert(entity.to_string(), entities);
-        } else {
-            let file = Path::new(&full_path).to_path_buf();
-            entities_to_display.insert(entity.to_string(), vec![Entity::new(file)]);
+        if flags.contains(&'F') {
+            // file.classify();
         }
 
-        for (key, val) in &entities_to_display {
-            if entities.len() > 1 || is_dir(format!("{}/{}", current_path, key.clone())) {
-                println!("{}:", key);
-            }
-
-            let names: Vec<String> = val.iter()
-                .map(|entity| entity.name.clone())
-                .collect();
-
-            println!("{}", names.join(" "));
-
-            println!();
+        if flags.contains(&'l') {
+            sep = "\n";
+            // println!("apply long listing");
         }
 
+        print!("{}", file);
+        if index != list.len() -1 {
+            print!("{sep}")
+        }
     }
+
 }
 
-// utitlies : 
+// utitlies :
 
-fn path_exists(arg : String) -> bool {
+fn path_exists(arg: String) -> bool {
     let path = Path::new(&arg);
     path.exists()
 }
@@ -138,6 +168,17 @@ fn is_dir(path: String) -> bool {
     path.is_dir()
 }
 
-fn format_permissions(_permissions: String) -> String  {
+fn format_permissions(_permissions: String) -> String {
     todo!();
+}
+
+impl Display for Entity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let r#type = "";
+        let res = format!(
+            "{}{} {} {} {} {} {}",
+            r#type, self.permissions, self.uid, self.gid, self.size, self.time, self.name
+        );
+        write!(f, "{}", res.trim())
+    }
 }
