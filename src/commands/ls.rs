@@ -4,6 +4,7 @@ use std::fmt::Display;
 use std::fs;
 use std::fs::Metadata;
 use std::io;
+use std::os::unix::fs::{FileTypeExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 
 pub fn ls_handler(args: Vec<String>, current_path: String) {
@@ -60,6 +61,8 @@ enum EntityType {
     Dir,
     Executable,
     SymLink,
+    Fifo,
+    Socket,
 }
 
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
@@ -89,20 +92,22 @@ impl Entity {
 
     fn long_list(&mut self) {
         let metadata = self.metadata();
-        self.file_type(metadata);
-        // println!("{metadata:?}");
+        self.file_type(metadata.clone());
+        println!("{:?}", metadata.permissions().mode());
     }
 
     fn file_type(&mut self, metadata: Metadata) {
         let file_type = metadata.file_type();
         if file_type.is_dir() {
-            println!("{:?} is a directory", self.path);
-        } else if file_type.is_file() {
-            println!("{:?} is a regular file", self.path);
+            self.file_type = EntityType::Dir;
         } else if file_type.is_symlink() {
-            println!("{:?} is a symbolic link", self.path);
-        } else {
-            println!("{:?} is an unknown file type", self.path);
+            self.file_type = EntityType::SymLink;
+        } else if file_type.is_fifo() {
+            self.file_type = EntityType::Fifo;
+        } else if file_type.is_socket() {
+            self.file_type = EntityType::Socket;
+        } else if file_type.is_fifo() {
+            self.file_type = EntityType::File;
         }
     }
 
@@ -131,11 +136,16 @@ fn list_items(flags: Vec<char>, full_path: String, entity: String) {
 
         list = files.into_iter().map(|p| Entity::new(p)).collect();
     }
-
-    for (index, file) in list.iter().enumerate() {
+    let list_len = list.len();
+    list.sort_by(|a, b| {
+        let file_a = a.name.strip_prefix(".").unwrap_or(&a.name);
+        let file_b = b.name.strip_prefix(".").unwrap_or(&b.name);
+        file_a.cmp(&file_b)
+    });
+    for (index, file) in list.iter_mut().enumerate() {
         let mut sep = " ";
 
-        if !flags.contains(&'a') && file.name.starts_with("."){
+        if !flags.contains(&'a') && file.name.starts_with(".") {
             continue;
         }
 
@@ -144,16 +154,16 @@ fn list_items(flags: Vec<char>, full_path: String, entity: String) {
         }
 
         if flags.contains(&'l') {
+            file.long_list();
             sep = "\n";
             // println!("apply long listing");
         }
 
         print!("{}", file);
-        if index != list.len() -1 {
+        if index != list_len - 1 {
             print!("{sep}")
         }
     }
-
 }
 
 // utitlies :
