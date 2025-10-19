@@ -22,7 +22,7 @@ pub fn ls_handler(args: Vec<String>, current_path: String) {
         for ch in arg.chars().skip(1) {
             if !valid_flags.contains(&ch) {
                 eprintln!("ls: invalid option -- '{}'", ch);
-                break;
+                return;
             }
             flags.insert(ch);
         }
@@ -56,13 +56,15 @@ pub fn ls_handler(args: Vec<String>, current_path: String) {
 
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
 enum EntityType {
-    #[default]
     File,
     Dir,
     Executable,
     SymLink,
+    CharacterDevice,
+    BlockDevice,
     Fifo,
     Socket,
+    #[default] None,
 }
 
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
@@ -75,52 +77,74 @@ struct Entity {
     size: String,
     time: String,
     name: String,
+    is_classified: bool,
+    is_long: bool
 }
 
 impl Entity {
     fn new(path: PathBuf) -> Self {
-        Self {
+        let mut new = Self {
             path: path.clone(),
             name: path.file_name().unwrap().to_string_lossy().to_string(),
             ..Default::default()
-        }
-    }
-
-    fn classify(&mut self, _is_long_listing: bool) {
-        todo!();
+        };
+        
+        let metadata = fs::symlink_metadata(new.path.clone()).expect("REASON");
+        new.file_type(metadata);
+        new
     }
 
     fn long_list(&mut self) {
-        let metadata = self.metadata();
-        self.file_type(metadata.clone());
-        let permissions_bits = format!("{:o}", metadata.permissions().mode() & 0o777);
-        let file_type_bits = format!("{:o}", metadata.permissions().mode() & 0o170000);
-        let file_type_bits2 = format!("{:o}", metadata.permissions().mode() & 0o770000);
-        
-        println!("mode: {:o}", metadata.permissions().mode());
-        println!("file type bits: {} ", file_type_bits);
-        println!("file type bits: {} ", file_type_bits2);
-        println!("permissions bits: {} ", permissions_bits);
+        let metadata = fs::symlink_metadata(self.path.clone()).expect("REASON");
+        self.get_permissions(metadata);
+        self.is_long  = true;
     }
 
-    fn file_type(&mut self, metadata: Metadata) {
-        let file_type = metadata.file_type();
-        if file_type.is_dir() {
-            self.file_type = EntityType::Dir;
-        } else if file_type.is_symlink() {
-            self.file_type = EntityType::SymLink;
-        } else if file_type.is_fifo() {
-            self.file_type = EntityType::Fifo;
-        } else if file_type.is_socket() {
-            self.file_type = EntityType::Socket;
-        } else if file_type.is_fifo() {
-            self.file_type = EntityType::File;
+    fn get_permissions(&mut self, metadata: Metadata) {
+        let permissions_bits = metadata.permissions().mode() & 0o777;
+        let permissions: Vec<u32> = format!("{:o}", permissions_bits).split("")
+                            .filter(|e| !e.is_empty())
+                            .map(|e| e.parse().unwrap())
+                            .collect();
+
+        let mut res = Vec::new();
+        for permission in permissions {
+            let mut nb = permission.clone() as i32;
+            if nb - 4 >= 0 {
+                nb = nb - 4 ;
+                res.push("r");
+            } else {
+                res.push("-");
+            }
+            if nb - 2 >= 0{
+                nb = nb - 2;
+                res.push("w");
+            }else {
+                res.push("-");
+            }
+            if nb - 1 >= 0 {
+                res.push("x");
+            } else {
+                res.push("-");
+            }
+        }
+        self.permissions = res.join("");
+    }
+
+    fn file_type(&mut self, metadata: Metadata){
+        let mode = metadata.permissions().mode();
+        self.file_type = match mode & 0o170000 {
+            0o100000 => EntityType::File,
+            0o040000 => EntityType::Dir,
+            0o120000 => EntityType::SymLink,
+            0o020000 => EntityType::CharacterDevice,
+            0o060000 => EntityType::BlockDevice,
+            0o010000 => EntityType::Fifo,
+            0o140000 => EntityType::Socket,
+            _ => todo!(),
         }
     }
 
-    fn metadata(&self) -> Metadata {
-        fs::symlink_metadata(self.path.clone()).expect("REASON")
-    }
 }
 
 fn list_items(flags: Vec<char>, full_path: String, entity: String) {
@@ -156,14 +180,11 @@ fn list_items(flags: Vec<char>, full_path: String, entity: String) {
             continue;
         }
 
-        if flags.contains(&'F') {
-            // file.classify();
-        }
+        file.is_classified = flags.contains(&'F');
 
         if flags.contains(&'l') {
             file.long_list();
             sep = "\n";
-            // println!("apply long listing");
         }
 
         print!("{}", file);
@@ -191,11 +212,36 @@ fn format_permissions(_permissions: String) -> String {
 
 impl Display for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let r#type = "";
-        let res = format!(
-            "{}{} {} {} {} {} {}",
-            r#type, self.permissions, self.uid, self.gid, self.size, self.time, self.name
-        );
+
+        let (symbol, mut sufix) = match self.file_type {
+            EntityType::File => ("-",""),
+            EntityType::Dir => ("d","/"),
+            EntityType::SymLink => ("l","@"),
+            EntityType::CharacterDevice => ("c",""),
+            EntityType::BlockDevice => ("b",""),
+            EntityType::Fifo => ("p",""),
+            EntityType::Socket => ("s",""),
+            EntityType::Executable => ("-","*"),
+            EntityType::None => ("",""),
+        };
+
+        if !self.is_classified {
+            sufix = "";
+        }
+        
+        let mut res = if self.is_long {
+            format!(
+                "{}{} {} {} {} {} {}{}",
+                symbol, self.permissions, self.uid, self.gid, self.size, self.time, self.name,sufix
+            )
+        } else {
+            format!(
+                "{}{}", self.name,sufix
+            )
+        };
+
+        res = res.split_whitespace().collect::<Vec<_>>().join(" ");
+
         write!(f, "{}", res.trim())
     }
 }
