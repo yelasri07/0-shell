@@ -126,6 +126,7 @@ impl Shell {
             "mv".to_string(),
             "pwd".to_string(),
             "rm".to_string(),
+            "clear".to_string(),
         ];
 
         let empty_cmd = &"".to_string();
@@ -160,6 +161,7 @@ impl Shell {
             "mkdir" => mkdir_handler(args),
             "mv" => mv_handler(args),
             "pwd" => pwd_handler(args),
+            "clear" => clear_handler(),
             _ => rm_handler(args),
         }
     }
