@@ -1,11 +1,14 @@
+use chrono::{DateTime, Local};
 use core::fmt;
 use std::collections::HashSet;
 use std::fmt::Display;
 use std::fs;
 use std::fs::Metadata;
 use std::io;
-use std::os::unix::fs::{FileTypeExt, PermissionsExt};
+use std::os::unix::fs::*;
 use std::path::{Path, PathBuf};
+use std::time::{SystemTime,Duration};
+use users::{get_group_by_gid, get_user_by_uid};
 
 pub fn ls_handler(args: Vec<String>, current_path: String) {
     let valid_flags: Vec<char> = vec!['l', 'a', 'F'];
@@ -64,7 +67,8 @@ enum EntityType {
     BlockDevice,
     Fifo,
     Socket,
-    #[default] None,
+    #[default]
+    None,
 }
 
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
@@ -78,7 +82,7 @@ struct Entity {
     time: String,
     name: String,
     is_classified: bool,
-    is_long: bool
+    is_long: bool,
 }
 
 impl Entity {
@@ -88,7 +92,7 @@ impl Entity {
             name: path.file_name().unwrap().to_string_lossy().to_string(),
             ..Default::default()
         };
-        
+
         let metadata = fs::symlink_metadata(new.path.clone()).expect("REASON");
         new.file_type(metadata);
         new
@@ -96,34 +100,47 @@ impl Entity {
 
     fn long_list(&mut self) {
         let metadata = fs::symlink_metadata(self.path.clone()).expect("REASON");
-        self.get_permissions(metadata);
-        self.is_long  = true;
+        self.is_long = true;
+        self.get_permissions(metadata.clone());
+        let uid = metadata.uid();
+        let gid = metadata.gid();
+
+        self.uid = get_user_by_uid(uid)
+            .map(|u| u.name().to_string_lossy().into_owned())
+            .expect("");
+        self.gid = get_group_by_gid(gid)
+            .map(|g| g.name().to_string_lossy().into_owned())
+            .expect("");
+        self.size = metadata.clone().len().to_string();
+        self.get_modified_time(metadata)
     }
 
     fn get_permissions(&mut self, metadata: Metadata) {
         let permissions_bits = metadata.permissions().mode() & 0o777;
-        let permissions: Vec<u32> = format!("{:o}", permissions_bits).split("")
-                            .filter(|e| !e.is_empty())
-                            .map(|e| e.parse().unwrap())
-                            .collect();
+        let permissions: Vec<u32> = format!("{:o}", permissions_bits)
+            .split("")
+            .filter(|e| !e.is_empty())
+            .map(|e| e.parse().unwrap())
+            .collect();
 
         let mut res = Vec::new();
         for permission in permissions {
             let mut nb = permission.clone() as i32;
             if nb - 4 >= 0 {
-                nb = nb - 4 ;
+                nb = nb - 4;
                 res.push("r");
             } else {
                 res.push("-");
             }
-            if nb - 2 >= 0{
+            if nb - 2 >= 0 {
                 nb = nb - 2;
                 res.push("w");
-            }else {
+            } else {
                 res.push("-");
             }
             if nb - 1 >= 0 {
                 res.push("x");
+                self.file_type = EntityType::Executable;
             } else {
                 res.push("-");
             }
@@ -131,7 +148,7 @@ impl Entity {
         self.permissions = res.join("");
     }
 
-    fn file_type(&mut self, metadata: Metadata){
+    fn file_type(&mut self, metadata: Metadata) {
         let mode = metadata.permissions().mode();
         self.file_type = match mode & 0o170000 {
             0o100000 => EntityType::File,
@@ -145,6 +162,19 @@ impl Entity {
         }
     }
 
+    fn get_modified_time(&mut self, metadata: Metadata) {
+        let modified_time = metadata.modified().unwrap();
+        let datetime: DateTime<Local> = modified_time.into();
+
+        let now = SystemTime::now();
+        let six_months = Duration::from_secs(60 * 60 * 24 * 30 * 6);
+
+        self.time = if now.duration_since(modified_time).unwrap_or_default() > six_months {
+            datetime.format("%b %e %Y").to_string() 
+        } else {
+            datetime.format("%b %e %H:%M").to_string()
+        };
+    }
 }
 
 fn list_items(flags: Vec<char>, full_path: String, entity: String) {
@@ -194,6 +224,46 @@ fn list_items(flags: Vec<char>, full_path: String, entity: String) {
     }
 }
 
+impl Display for Entity {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (symbol, mut sufix) = match self.file_type {
+            EntityType::File => ("-", ""),
+            EntityType::Dir => ("d", "/"),
+            EntityType::SymLink => ("l", "@"),
+            EntityType::CharacterDevice => ("c", ""),
+            EntityType::BlockDevice => ("b", ""),
+            EntityType::Fifo => ("p", ""),
+            EntityType::Socket => ("s", ""),
+            EntityType::Executable => ("-", "*"),
+            EntityType::None => ("", ""),
+        };
+
+        if !self.is_classified {
+            sufix = "";
+        }
+
+        let mut res = if self.is_long {
+            format!(
+                "{}{} {} {} {} {} {}{}",
+                symbol,
+                self.permissions,
+                self.uid,
+                self.gid,
+                self.size,
+                self.time,
+                self.name,
+                sufix
+            )
+        } else {
+            format!("{}{}", self.name, sufix)
+        };
+
+        res = res.split_whitespace().collect::<Vec<_>>().join(" ");
+
+        write!(f, "{}", res.trim())
+    }
+}
+
 // utitlies :
 
 fn path_exists(arg: String) -> bool {
@@ -204,44 +274,4 @@ fn path_exists(arg: String) -> bool {
 fn is_dir(path: String) -> bool {
     let path = Path::new(&path);
     path.is_dir()
-}
-
-fn format_permissions(_permissions: String) -> String {
-    todo!();
-}
-
-impl Display for Entity {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-
-        let (symbol, mut sufix) = match self.file_type {
-            EntityType::File => ("-",""),
-            EntityType::Dir => ("d","/"),
-            EntityType::SymLink => ("l","@"),
-            EntityType::CharacterDevice => ("c",""),
-            EntityType::BlockDevice => ("b",""),
-            EntityType::Fifo => ("p",""),
-            EntityType::Socket => ("s",""),
-            EntityType::Executable => ("-","*"),
-            EntityType::None => ("",""),
-        };
-
-        if !self.is_classified {
-            sufix = "";
-        }
-        
-        let mut res = if self.is_long {
-            format!(
-                "{}{} {} {} {} {} {}{}",
-                symbol, self.permissions, self.uid, self.gid, self.size, self.time, self.name,sufix
-            )
-        } else {
-            format!(
-                "{}{}", self.name,sufix
-            )
-        };
-
-        res = res.split_whitespace().collect::<Vec<_>>().join(" ");
-
-        write!(f, "{}", res.trim())
-    }
 }
