@@ -93,7 +93,14 @@ impl Entity {
     fn long_list(&mut self) {
         let metadata = self.metadata();
         self.file_type(metadata.clone());
-        println!("{:?}", metadata.permissions().mode());
+        let permissions_bits = format!("{:o}", metadata.permissions().mode() & 0o777);
+        let file_type_bits = format!("{:o}", metadata.permissions().mode() & 0o170000);
+        let file_type_bits2 = format!("{:o}", metadata.permissions().mode() & 0o770000);
+        
+        println!("mode: {:o}", metadata.permissions().mode());
+        println!("file type bits: {} ", file_type_bits);
+        println!("file type bits: {} ", file_type_bits2);
+        println!("permissions bits: {} ", permissions_bits);
     }
 
     fn file_type(&mut self, metadata: Metadata) {
