@@ -38,7 +38,9 @@ impl Shell {
     }
 
     pub fn set_current_path(&mut self, value: String) {
-        self.current_path = value
+        if !value.is_empty() {
+            self.current_path = value
+        }
     }
 
     pub fn parse_input(&mut self, input: &str) {
@@ -159,7 +161,7 @@ impl Shell {
             "ls" => ls_handler(args),
             "mkdir" => mkdir_handler(args),
             "mv" => mv_handler(args),
-            "pwd" => pwd_handler(args),
+            "pwd" => pwd_handler(args, &self.current_path),
             _ => rm_handler(args),
         }
     }
