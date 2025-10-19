@@ -2,7 +2,6 @@ use std::fs;
 use std::path::Path;
 
 pub fn rm_handler(args: Vec<String>) {
-    println!("{:?}", args);
     if args.is_empty() {
         eprintln!("Usage: rm [-r] <file_or_directory>");
         return;
