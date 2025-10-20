@@ -43,6 +43,10 @@ impl Shell {
         }
     }
 
+    pub fn set_quotes_type(&mut self, value: char) {
+        self.quotes_type = value
+    }
+
     pub fn parse_input(&mut self, input: &str) {
         for (i, ch) in input.chars().enumerate() {
             if self.is_backslash {
@@ -67,6 +71,7 @@ impl Shell {
 
             if ch == self.quotes_type {
                 self.is_quotes = false;
+                self.quotes_type = '"';
                 if input.chars().nth(i + 1).unwrap_or(' ') == ' ' {
                     self.add_arg(self.arg.clone());
                     self.arg.clear();
