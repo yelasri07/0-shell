@@ -1,4 +1,6 @@
-use std::env;
+use std::{env, io::ErrorKind};
+
+use crate::utils::get_current_dir;
 
 pub fn cd_handler(args: Vec<String>, prev_path: &String) -> String {
     let mut new_dir: &str = &args.join(" ");
@@ -7,26 +9,23 @@ pub fn cd_handler(args: Vec<String>, prev_path: &String) -> String {
         new_dir = "/home/";
     }
 
-    let path = match env::current_dir() {
-        Ok(p) => format!("{:?}", p),
-        Err(e) => {
-            println!("{}", e);
-            "".to_string()
-        }
-    };
+    let path = get_current_dir();
 
     if new_dir == "-" {
         if prev_path.is_empty() {
-            println!("cd: OLDPWD not set");
+            eprintln!("cd: OLDPWD not set");
             return "".to_string();
         }
-        println!("{}", prev_path);
         new_dir = prev_path;
     }
 
     if let Err(e) = env::set_current_dir(new_dir) {
-        println!("{}", e);
-        return "".to_string();
+        match e.kind() {
+            ErrorKind::NotFound => eprintln!("cd: No such file or directory"),
+            ErrorKind::PermissionDenied => eprintln!("cd: Permission denied"),
+            _ => eprintln!("{}", e),
+        }
+        return prev_path.to_string();
     }
 
     path
