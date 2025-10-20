@@ -53,7 +53,10 @@ pub fn mv_handler(args: Vec<String>) {
                     let src_meta = fs::metadata(&files[0]);
                     if let Ok(file) = src_meta {
                         if !file.is_file() {
-                            eprintln!("mv: cannot overwrite non-directory {:?} with directory '{}'", destination,files[0]);
+                            eprintln!(
+                                "mv: cannot overwrite non-directory {:?} with directory '{}'",
+                                destination, files[0]
+                            );
                             return;
                         }
                     }

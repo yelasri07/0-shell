@@ -164,7 +164,7 @@ impl Shell {
             "echo" => echo_handler(args),
             "exit" => exit_handler(args),
             "ls" => ls_handler(args),
-            "mkdir" => mkdir_handler(args),
+            "mkdir" => mkdir_handler(args,self.current_path.clone()),
             "mv" => mv_handler(args),
             "pwd" => pwd_handler(&self.current_path),
             _ => rm_handler(args),
