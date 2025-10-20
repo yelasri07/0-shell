@@ -7,7 +7,7 @@ use std::fs::Metadata;
 use std::io;
 use std::os::unix::fs::*;
 use std::path::{Path, PathBuf};
-use std::time::{SystemTime,Duration};
+use std::time::{Duration, SystemTime};
 use users::{get_group_by_gid, get_user_by_uid};
 
 pub fn ls_handler(args: Vec<String>, current_path: String) {
@@ -76,6 +76,7 @@ struct Entity {
     path: PathBuf,
     file_type: EntityType,
     permissions: String,
+    nlink: u64,
     uid: String,
     gid: String,
     size: String,
@@ -102,15 +103,18 @@ impl Entity {
         let metadata = fs::symlink_metadata(self.path.clone()).expect("REASON");
         self.is_long = true;
         self.get_permissions(metadata.clone());
+
+        self.nlink = metadata.nlink();
+
         let uid = metadata.uid();
         let gid = metadata.gid();
-
         self.uid = get_user_by_uid(uid)
             .map(|u| u.name().to_string_lossy().into_owned())
             .expect("");
         self.gid = get_group_by_gid(gid)
             .map(|g| g.name().to_string_lossy().into_owned())
             .expect("");
+
         self.size = metadata.clone().len().to_string();
         self.get_modified_time(metadata)
     }
@@ -140,7 +144,11 @@ impl Entity {
             }
             if nb - 1 >= 0 {
                 res.push("x");
-                self.file_type = EntityType::Executable;
+                self.file_type = if self.file_type == EntityType::File {
+                    EntityType::Executable
+                } else {
+                    self.file_type.clone()
+                };
             } else {
                 res.push("-");
             }
@@ -170,7 +178,7 @@ impl Entity {
         let six_months = Duration::from_secs(60 * 60 * 24 * 30 * 6);
 
         self.time = if now.duration_since(modified_time).unwrap_or_default() > six_months {
-            datetime.format("%b %e %Y").to_string() 
+            datetime.format("%b %e %Y").to_string()
         } else {
             datetime.format("%b %e %H:%M").to_string()
         };
@@ -244,9 +252,10 @@ impl Display for Entity {
 
         let mut res = if self.is_long {
             format!(
-                "{}{} {} {} {} {} {}{}",
+                "{}{} {} {} {} {} {} {}{}",
                 symbol,
                 self.permissions,
+                self.nlink,
                 self.uid,
                 self.gid,
                 self.size,
