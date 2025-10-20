@@ -18,9 +18,6 @@ pub fn read_line(path: &str) -> (String,usize) {
 pub fn get_current_dir() -> String {
     match env::current_dir() {
         Ok(path) => format!("{:?}", path).trim_matches('"').to_string(),
-        Err(e) => {
-            println!("{}", e);
-            "".to_string()
-        }
+        Err(_) => "".to_string()
     }
 }

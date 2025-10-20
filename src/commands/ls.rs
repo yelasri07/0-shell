@@ -1,7 +1,7 @@
 use chrono::{DateTime, Local};
 use core::fmt;
 use std::collections::HashSet;
-use std::fmt::Display;
+use std::fmt::{Display};
 use std::fs;
 use std::fs::Metadata;
 use std::io;
@@ -10,53 +10,111 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 use users::{get_group_by_gid, get_user_by_uid};
 
+#[derive(Debug, Eq, PartialEq, Default)]
+struct Target(String, String);
+
+#[derive(Debug, Default)]
+struct LsConfig {
+    current_path: String,
+    valid_flags: Vec<char>,
+    flags: HashSet<char>,
+    targets: Vec<Target>,
+}
+
+impl LsConfig {
+    fn new(valid_flags: Vec<char>, current_path: String) -> Self {
+        Self {
+            current_path,
+            valid_flags,
+            ..Default::default()
+        }
+    }
+
+    fn parse_flags(&mut self, args: Vec<String>) -> Result<(), String> {
+        // println!("flags =>> {:}",args );
+        for elem in args {
+            for ch in elem.chars().skip(1) {
+                if !self.valid_flags.contains(&ch) {
+                    return Err(format!("ls: invalid option -- '{}'", ch));
+                }
+                self.flags.insert(ch);
+            }
+        }
+        Ok(())
+    }
+
+    fn parse_targets(&mut self, args: Vec<String>) {
+        for elem in args {
+            let full_path = if !elem.starts_with("/") {
+                format!("{}/{}", self.current_path, elem)
+            } else {
+                elem.clone()
+            };
+
+            if !path_exists(&full_path) {
+                eprintln!("ls: cannot access '{}': No such file or directory", elem);
+                continue;
+            }
+            let target = Target(elem, full_path);
+            self.targets.push(target);
+        }
+
+        self.
+
+
+    }
+
+    fn execute() {
+
+    }
+
+
+}
+
 pub fn ls_handler(args: Vec<String>, current_path: String) {
     let valid_flags: Vec<char> = vec!['l', 'a', 'F'];
-    let mut flags = HashSet::new();
-    let mut entities = Vec::new();
+    let mut ls = LsConfig::new(valid_flags, current_path);
 
-    for arg in args {
-        if !arg.starts_with('-') {
-            entities.push(arg);
-            continue;
+    // handle flags :
+    let flags: Vec<String> = args
+        .clone()
+        .into_iter()
+        .filter(|elem| elem.starts_with("-"))
+        .collect();
+    match ls.parse_flags(flags) {
+        Err(message) => {
+            eprintln!("{}", message);
+            return;
         }
-
-        for ch in arg.chars().skip(1) {
-            if !valid_flags.contains(&ch) {
-                eprintln!("ls: invalid option -- '{}'", ch);
-                return;
-            }
-            flags.insert(ch);
-        }
+        Ok(_) => {}
     }
 
-    if entities.is_empty() {
-        entities.push(current_path.clone());
-    }
+    // handle targets :
+    let targets: Vec<String> = args
+        .clone()
+        .into_iter()
+        .filter(|elem: &String| !elem.starts_with("-"))
+        .collect();
+
+    ls.parse_targets(targets);
+
+    println!("ls ==>> {:?}", ls);
 
     // todo: sort by files then folders.
-    entities.sort();
+    // let flags_vec: Vec<char> = flags.clone().into_iter().collect();
 
-    let flags_vec: Vec<char> = flags.clone().into_iter().collect();
+    // for (index, entity) in entities.iter().enumerate() {
+    //     if is_dir(full_path.clone()) && entities.len() > 1 {
+    //         println!("{}:", entity);
+    //     }
 
-    for (index, entity) in entities.iter().enumerate() {
-        let full_path = if !entity.starts_with("/") {
-            format!("{}/{}", current_path, entity)
-        } else {
-            entity.to_string()
-        };
+    //     list_items(flags_vec.clone(), full_path, entity.to_string());
 
-        if is_dir(full_path.clone()) && entities.len() > 1 {
-            println!("{}:", entity);
-        }
-
-        list_items(flags_vec.clone(), full_path, entity.to_string());
-
-        println!("");
-        if index != entities.len() - 1 {
-            println!("");
-        }
-    }
+    //     println!("");
+    //     if index != entities.len() - 1 {
+    //         println!("");
+    //     }
+    // }
 }
 
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
@@ -176,7 +234,9 @@ impl Entity {
         let modified_time = metadata.modified().unwrap();
         let datetime: DateTime<Local> = modified_time.into();
 
-        let now = SystemTime::now().duration_since(modified_time).unwrap_or_default();
+        let now = SystemTime::now()
+            .duration_since(modified_time)
+            .unwrap_or_default();
         let six_months = Duration::from_secs(60 * 60 * 24 * 30 * 6);
 
         self.time = if now > six_months {
@@ -190,7 +250,7 @@ impl Entity {
 fn list_items(flags: Vec<char>, full_path: String, entity: String) {
     let mut list: Vec<Entity> = Vec::new();
 
-    if !path_exists(full_path.clone()) {
+    if !path_exists(&full_path) {
         eprintln!("ls: cannot access '{}': No such file or directory", entity);
         return;
     }
@@ -199,7 +259,7 @@ fn list_items(flags: Vec<char>, full_path: String, entity: String) {
         let file = Path::new(&full_path).to_path_buf();
         list.push(Entity::new(file));
     } else {
-        // todo : handle the errors alhmar 
+        // todo : handle the errors alhmar
         let files = fs::read_dir(&full_path)
             .unwrap()
             .map(|res| res.map(|e| e.path()))
@@ -233,7 +293,6 @@ fn list_items(flags: Vec<char>, full_path: String, entity: String) {
             print!("{sep}")
         }
     }
-
 }
 
 impl Display for Entity {
@@ -279,8 +338,8 @@ impl Display for Entity {
 
 // utitlies :
 
-fn path_exists(arg: String) -> bool {
-    let path = Path::new(&arg);
+fn path_exists(arg: &String) -> bool {
+    let path = Path::new(arg);
     path.exists()
 }
 

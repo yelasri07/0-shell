@@ -38,7 +38,13 @@ impl Shell {
     }
 
     pub fn set_current_path(&mut self, value: String) {
-        self.current_path = value
+        if !value.is_empty() {
+            self.current_path = value
+        }
+    }
+
+    pub fn set_quotes_type(&mut self, value: char) {
+        self.quotes_type = value
     }
 
     pub fn parse_input(&mut self, input: &str) {
@@ -65,6 +71,7 @@ impl Shell {
 
             if ch == self.quotes_type {
                 self.is_quotes = false;
+                self.quotes_type = '"';
                 if input.chars().nth(i + 1).unwrap_or(' ') == ' ' {
                     self.add_arg(self.arg.clone());
                     self.arg.clear();
@@ -160,8 +167,8 @@ impl Shell {
             "ls" => ls_handler(args, self.current_path.clone()),
             "mkdir" => mkdir_handler(args),
             "mv" => mv_handler(args),
-            "pwd" => pwd_handler(args),
             "clear" => clear_handler(),
+            "pwd" => pwd_handler(args, &self.current_path),
             _ => rm_handler(args),
         }
     }

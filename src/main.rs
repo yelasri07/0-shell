@@ -20,6 +20,7 @@ fn main() {
 
         shell.set_args(vec![]);
         shell.set_arg("".to_string());
+        shell.set_quotes_type('"');
 
         shell.parse_input(input.as_str());
 
