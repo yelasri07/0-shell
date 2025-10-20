@@ -2,7 +2,7 @@ use std::{env, io::ErrorKind};
 
 use crate::utils::get_current_dir;
 
-pub fn cd_handler(args: Vec<String>, prev_path: &String) -> String {
+pub fn cd_handler(args: Vec<String>, prev_path: &String, current_path: &str) -> (String, String) {
     let mut new_dir: &str = &args.join(" ");
 
     if new_dir.is_empty() || new_dir == "~" {
@@ -14,7 +14,7 @@ pub fn cd_handler(args: Vec<String>, prev_path: &String) -> String {
     if new_dir == "-" {
         if prev_path.is_empty() {
             eprintln!("cd: OLDPWD not set");
-            return "".to_string();
+            return ("".to_string(), current_path.to_string());
         }
         new_dir = prev_path;
     }
@@ -25,8 +25,10 @@ pub fn cd_handler(args: Vec<String>, prev_path: &String) -> String {
             ErrorKind::PermissionDenied => eprintln!("cd: Permission denied"),
             _ => eprintln!("{}", e),
         }
-        return prev_path.to_string();
+        return (prev_path.to_string(), current_path.to_string());
     }
 
-    path
+    let current_path = get_current_dir();
+
+    (path, current_path)
 }

@@ -156,9 +156,9 @@ impl Shell {
         match cmd {
             "cat" => cat_handler(args),
             "cd" => {
-                self.prev_path = cd_handler(args, &self.prev_path)
-                    .trim_matches('"')
-                    .to_string()
+                let (prev_path, current_path) = cd_handler(args, &self.prev_path, &self.current_path);
+                self.prev_path = prev_path.trim_matches('"').to_string();
+                self.current_path = current_path.trim_matches('"').to_string();
             }
             "cp" => cp_handler(args),
             "echo" => echo_handler(args),
@@ -166,7 +166,7 @@ impl Shell {
             "ls" => ls_handler(args),
             "mkdir" => mkdir_handler(args),
             "mv" => mv_handler(args),
-            "pwd" => pwd_handler(args, &self.current_path),
+            "pwd" => pwd_handler(&self.current_path),
             _ => rm_handler(args),
         }
     }

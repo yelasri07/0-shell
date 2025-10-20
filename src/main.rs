@@ -9,9 +9,8 @@ use shell::*;
 fn main() {
     let mut shell = Shell::new();
 
+    shell.set_current_path(get_current_dir());
     loop {
-        shell.set_current_path(get_current_dir());
-
         let (input, n_bytes) = read_line(&(shell.current_path.to_string() + "$"));
         if n_bytes == 0 {
             println!();
