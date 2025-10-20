@@ -12,7 +12,6 @@ use users::{get_group_by_gid, get_user_by_uid};
 
 pub fn ls_handler(args: Vec<String>, current_path: String) {
     let valid_flags: Vec<char> = vec!['l', 'a', 'F'];
-
     let mut flags = HashSet::new();
     let mut entities = Vec::new();
 
@@ -35,7 +34,9 @@ pub fn ls_handler(args: Vec<String>, current_path: String) {
         entities.push(current_path.clone());
     }
 
+    // todo: sort by files then folders.
     entities.sort();
+
     let flags_vec: Vec<char> = flags.clone().into_iter().collect();
 
     for (index, entity) in entities.iter().enumerate() {
@@ -48,6 +49,7 @@ pub fn ls_handler(args: Vec<String>, current_path: String) {
         if is_dir(full_path.clone()) && entities.len() > 1 {
             println!("{}:", entity);
         }
+
         list_items(flags_vec.clone(), full_path, entity.to_string());
 
         println!("");
@@ -174,10 +176,10 @@ impl Entity {
         let modified_time = metadata.modified().unwrap();
         let datetime: DateTime<Local> = modified_time.into();
 
-        let now = SystemTime::now();
+        let now = SystemTime::now().duration_since(modified_time).unwrap_or_default();
         let six_months = Duration::from_secs(60 * 60 * 24 * 30 * 6);
 
-        self.time = if now.duration_since(modified_time).unwrap_or_default() > six_months {
+        self.time = if now > six_months {
             datetime.format("%b %e %Y").to_string()
         } else {
             datetime.format("%b %e %H:%M").to_string()
@@ -197,6 +199,7 @@ fn list_items(flags: Vec<char>, full_path: String, entity: String) {
         let file = Path::new(&full_path).to_path_buf();
         list.push(Entity::new(file));
     } else {
+        // todo : handle the errors alhmar 
         let files = fs::read_dir(&full_path)
             .unwrap()
             .map(|res| res.map(|e| e.path()))
@@ -230,6 +233,7 @@ fn list_items(flags: Vec<char>, full_path: String, entity: String) {
             print!("{sep}")
         }
     }
+
 }
 
 impl Display for Entity {
