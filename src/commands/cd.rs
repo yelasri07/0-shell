@@ -3,9 +3,14 @@ use std::{env, io::ErrorKind};
 use crate::utils::get_current_dir;
 
 pub fn cd_handler(args: Vec<String>, prev_path: &String, current_path: &str) -> (String, String) {
+    if args.len() > 1 {
+        eprintln!("cd: too many arguments");
+        return (prev_path.to_string(), current_path.to_string())
+    } 
+
     let mut new_dir: &str = &args.join(" ");
 
-    if new_dir.is_empty() || new_dir == "~" {
+    if new_dir.is_empty() || new_dir == "~" || new_dir == "--" {
         new_dir = "/home/";
     }
 
