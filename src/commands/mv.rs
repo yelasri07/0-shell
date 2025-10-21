@@ -57,7 +57,7 @@ pub fn mv_handler(args: Vec<String>) {
                     if src.is_file() {
                         let new_dest = destination.join(src.file_name().unwrap());
                         if let Err(e) = fs::rename(src, new_dest) {
-                            eprintln!("mv: +>{e}");
+                            eprintln!("mv: {e}");
                             continue;
                         }
                     } else if src.is_dir() {
@@ -121,7 +121,6 @@ pub fn get_args(args: &Vec<String>, destination: &Path) -> Vec<String> {
 
 pub fn move_dir_recursivly(src: &Path, dest: &Path) -> Result<(), Error> {
     let new_dest = dest.join(src.file_name().unwrap());
-    println!("{:?}=>{:?}", src,new_dest);
     if src.is_file() {
         if let Err(e) = fs::rename(src, new_dest) {
             return Err(e);
@@ -135,6 +134,9 @@ pub fn move_dir_recursivly(src: &Path, dest: &Path) -> Result<(), Error> {
                 return Err(e);
             }
         }
+        if let Err(e)=fs::remove_dir_all(&src){
+            return Err(e);
+          }
     }
 
     Ok(())

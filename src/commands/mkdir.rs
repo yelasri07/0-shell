@@ -1,6 +1,6 @@
-use std::{fs, path::Path};
+use std::{fs, path::{Path, PathBuf}};
 
-pub fn mkdir_handler(args: Vec<String>, current_path: String) {
+pub fn mkdir_handler(args: Vec<String>, current_path: PathBuf) {
     if args.is_empty() {
         eprintln!("mkdir: missing operand");
     }
