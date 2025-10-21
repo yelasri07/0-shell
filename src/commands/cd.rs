@@ -2,19 +2,19 @@ use std::{env, io::ErrorKind, path::PathBuf};
 
 use crate::utils::get_current_dir;
 
-pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: PathBuf) -> (PathBuf, PathBuf) {
+pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: PathBuf, home: String) -> (PathBuf, PathBuf) {
     if args.len() > 1 {
         eprintln!("cd: too many arguments");
         return (prev_path, current_path)
-    } 
+    }
 
     let mut new_dir: PathBuf = PathBuf::from(args.join(" "));
 
-    if new_dir.as_os_str().is_empty() || new_dir.as_os_str() == "~" || new_dir.as_os_str() == "--" {
-        new_dir = PathBuf::from("/home/");
+    if new_dir.as_os_str().is_empty() || new_dir.as_os_str() == "--" {
+        new_dir = PathBuf::from(home);
     }
 
-    let path = get_current_dir();
+    let p_path = get_current_dir();
 
     if new_dir.as_os_str() == "-" {
         if prev_path.as_os_str().is_empty() {
@@ -33,7 +33,7 @@ pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: PathBuf) 
         return (prev_path, current_path);
     }
 
-    let current_path = get_current_dir();
+    let c_path = get_current_dir();
 
-    (path, current_path)
+    (p_path, c_path)
 }
