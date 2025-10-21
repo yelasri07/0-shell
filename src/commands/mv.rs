@@ -1,5 +1,5 @@
-use crate::commands::*;
-use std::{fs, path::Path};
+use crate::utils::direct_children;
+use std::{fs, io::Error, path::Path};
 pub fn mv_handler(args: Vec<String>) {
     if args.is_empty() {
         eprintln!("mv: missing file operand");
@@ -16,67 +16,95 @@ pub fn mv_handler(args: Vec<String>) {
             eprintln!("mv: cannot stat '{:?}': No such file or directory", src);
             return;
         }
-        let src_meta = fs::metadata(src);
-        match src_meta {
-            Ok(file) => {
-                if file.is_dir() {
-                    if let Err(e) = fs::rename(src, destination) {
-                        eprintln!("mv: {e}");
+
+        if src.is_dir() {
+            if let Err(e) = fs::rename(src, destination) {
+                eprintln!("mv: {e}");
+            }
+        } else if src.is_file() {
+            if let Err(e) = fs::rename(src, destination) {
+                eprintln!("mv: {e}");
+                return;
+            }
+        }
+
+        return;
+    }
+
+            if destination.is_dir() {
+                for opt in args[..args.len() - 1].iter() {
+                    if opt == "." || opt == ".." {
+                        eprintln!(
+                            "mv: cannot move '{opt}' to {:?}: Device or resource busy",
+                            destination
+                        );
+                        continue;
                     }
-                } else if file.is_file() {
-                    if let Err(e) = fs::rename(src, destination) {
+                    let src: &Path = Path::new(&opt);
+                    if !src.exists() {
+                        eprintln!("mv: cannot stat '{opt}': No such file or directory");
+                        continue;
+                    }
+                    if src.is_file() {
+                        let new_dest = destination.join(src.file_name().unwrap());
+                        if let Err(e) = fs::rename(src, new_dest) {
+                            eprintln!("mv: {e}");
+                            continue;
+                        }
+                    } else if src.is_dir() {
+                        if let Err(e) = move_dir_recursivly(src, destination) {
+                            eprintln!("mv: {e}");
+                            continue;
+                        }
+                    }
+                }
+            } else if destination.is_file() {
+                if args.len() > 2 {
+                    eprintln!("mv: target '{:?}' is not a directory", destination);
+                    return;
+                    
+                } else if args.len() == 2 {
+                    let src_meta = fs::metadata(&args[0]);
+                    if let Ok(file) = src_meta {
+                        if !file.is_file() {
+                            eprintln!(
+                                "mv: cannot overwrite non-directory {:?} with directory '{}'",
+                                destination, args[0]
+                            );
+                            return;
+                        }
+                    }
+
+                    let src_path = Path::new(&args[0]);
+                    if let Err(e) = fs::rename(src_path, destination) {
                         eprintln!("mv: {e}");
                         return;
                     }
                 }
             }
-            Err(e) => {
-                eprintln!("mv: {e}");
-            }
-        }
-        return;
-    }
-    let metadata = fs::metadata(destination);
-    match metadata {
-        Ok(dest) => {
-            if dest.is_dir() {
-                let mut files = get_args(&args);
-                cp_handler(files.clone());
-                files.insert(0, "-r".to_string());
-                rm_handler(files[..files.len() - 1].to_vec());
-            } else if dest.is_file() {
-                let files = get_args(&args);
-                if files.len() > 2 {
-                    eprintln!("mv: target '{:?}' is not a directory", destination);
-                    return;
-                } else if files.len() == 2 {
-                    let src_meta = fs::metadata(&files[0]);
-                    if let Ok(file) = src_meta {
-                        if !file.is_file() {
-                            eprintln!("mv: cannot overwrite non-directory {:?} with directory '{}'", destination,files[0]);
-                            return;
-                        }
-                    }
-                }
-                cp_handler(files.clone());
-                rm_handler(files[..files.len() - 1].to_vec());
-            }
-        }
-        Err(e) => {
-            eprintln!("{e}");
-        }
-    }
+       
 }
 
-pub fn get_args(args: &Vec<String>) -> Vec<String> {
-    let mut files: Vec<String> = vec![];
-    for opt in args {
-        let file = Path::new(&opt);
-        if !file.exists() {
-            eprintln!("mv: cannot stat '{opt}': No such file or directory");
-            continue;
+
+pub fn move_dir_recursivly(src: &Path, dest: &Path) -> Result<(), Error> {
+    let new_dest = dest.join(src.file_name().unwrap());
+    if src.is_file() {
+        if let Err(e) = fs::rename(src, new_dest) {
+            return Err(e);
         }
-        files.push(opt.clone());
+    } else if src.is_dir() {
+        if let Err(e) = fs::create_dir_all(&new_dest) {
+            return Err(e);
+        }
+        for child in direct_children(src) {
+            if let Err(e) = move_dir_recursivly(&child, &new_dest) {
+                return Err(e);
+            }
+        }
+        if let Err(e) = fs::remove_dir_all(&src) {
+            return Err(e);
+        }
     }
-    files
+
+    Ok(())
 }
