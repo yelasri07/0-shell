@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use crate::{commands::*, utils::read_line};
 
 pub struct Shell {
@@ -5,17 +7,17 @@ pub struct Shell {
     pub args: Vec<String>,
     is_quotes: bool,
     quotes_type: char,
-    prev_path: String,
     is_backslash: bool,
-    pub current_path: String,
+    prev_path: PathBuf,
+    pub current_path: PathBuf,
 }
 
 impl Shell {
     pub fn new() -> Self {
         Self {
             arg: String::new(),
-            prev_path: String::new(),
-            current_path: String::new(),
+            prev_path: PathBuf::new(),
+            current_path: PathBuf::new(),
             args: vec![],
             quotes_type: '"',
             is_quotes: false,
@@ -37,8 +39,8 @@ impl Shell {
         self.arg = value
     }
 
-    pub fn set_current_path(&mut self, value: String) {
-        if !value.is_empty() {
+    pub fn set_current_path(&mut self, value: PathBuf) {
+        if !value.as_os_str().is_empty() {
             self.current_path = value
         }
     }
@@ -156,9 +158,9 @@ impl Shell {
         match cmd {
             "cat" => cat_handler(args),
             "cd" => {
-                let (prev_path, current_path) = cd_handler(args, &self.prev_path, &self.current_path);
-                self.prev_path = prev_path.trim_matches('"').to_string();
-                self.set_current_path(current_path.trim_matches('"').to_string());
+                let (prev_path, current_path) = cd_handler(args, self.prev_path.to_path_buf(), self.current_path.to_path_buf());
+                self.prev_path = prev_path;
+                self.set_current_path(current_path);
             }
             "cp" => cp_handler(args),
             "echo" => echo_handler(args),

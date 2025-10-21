@@ -14,10 +14,10 @@ pub fn read_line(path: &str) -> (String,usize) {
     (input.trim().to_string(),n_bytes)
 }
 
-pub fn get_current_dir() -> String {
+pub fn get_current_dir() -> PathBuf {
     match env::current_dir() {
-        Ok(path) => format!("{:?}", path).trim_matches('"').to_string(),
-        Err(_) => "".to_string()
+        Ok(path) => path,
+        Err(_) => PathBuf::new()
     }
 }
 pub fn direct_children(dir: &Path) -> Vec<PathBuf> {
