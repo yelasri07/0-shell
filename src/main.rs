@@ -11,7 +11,7 @@ fn main() {
 
     shell.set_current_path(get_current_dir());
     loop {
-        let (input, n_bytes) = read_line(&(shell.current_path.to_string() + "$"));
+        let (input, n_bytes) = read_line(&(shell.current_path.display().to_string() + "$"));
         if n_bytes == 0 {
             println!();
             break;

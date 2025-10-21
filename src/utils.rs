@@ -1,6 +1,6 @@
 use std::{
     env,
-    io::{self, Write},
+    io::{self, Write}, path::PathBuf,
 };
 
 use colored::Colorize;
@@ -15,9 +15,9 @@ pub fn read_line(path: &str) -> (String,usize) {
     (input.trim().to_string(),n_bytes)
 }
 
-pub fn get_current_dir() -> String {
+pub fn get_current_dir() -> PathBuf {
     match env::current_dir() {
-        Ok(path) => path.display().to_string(),
-        Err(_) => "".to_string()
+        Ok(path) => path,
+        Err(_) => PathBuf::new()
     }
 }
