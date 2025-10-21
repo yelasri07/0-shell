@@ -157,8 +157,8 @@ impl Shell {
             "cat" => cat_handler(args),
             "cd" => {
                 let (prev_path, current_path) = cd_handler(args, &self.prev_path, &self.current_path);
-                self.prev_path = prev_path.trim_matches('"').to_string();
-                self.set_current_path(current_path.trim_matches('"').to_string());
+                self.prev_path = prev_path;
+                self.set_current_path(current_path);
             }
             "cp" => cp_handler(args),
             "echo" => echo_handler(args),
