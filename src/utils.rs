@@ -1,6 +1,5 @@
 use std::{
-    env,
-    io::{self, Write},
+    env, fs, io::{self, Write}, path::{Path, PathBuf}
 };
 
 use colored::Colorize;
@@ -20,4 +19,13 @@ pub fn get_current_dir() -> String {
         Ok(path) => format!("{:?}", path).trim_matches('"').to_string(),
         Err(_) => "".to_string()
     }
+}
+pub fn direct_children(dir: &Path) -> Vec<PathBuf> {
+    let mut children = Vec::new();
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            children.push(entry.path());
+        }
+    }
+    children
 }

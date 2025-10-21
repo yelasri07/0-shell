@@ -1,5 +1,5 @@
-use crate::commands::*;
-use std::{fs, path::Path};
+use crate::utils::direct_children;
+use std::{fs, io::Error, path::Path};
 pub fn mv_handler(args: Vec<String>) {
     if args.is_empty() {
         eprintln!("mv: missing file operand");
@@ -36,16 +36,39 @@ pub fn mv_handler(args: Vec<String>) {
         }
         return;
     }
+
     let metadata = fs::metadata(destination);
     match metadata {
         Ok(dest) => {
             if dest.is_dir() {
-                let mut files = get_args(&args);
-                cp_handler(files.clone());
-                files.insert(0, "-r".to_string());
-                rm_handler(files[..files.len() - 1].to_vec());
+                for opt in args[..args.len() - 1].iter() {
+                    if opt == "." || opt == ".." {
+                        eprintln!(
+                            "mv: cannot move '{opt}' to {:?}: Device or resource busy",
+                            destination
+                        );
+                        continue;
+                    }
+                    let src: &Path = Path::new(&opt);
+                    if !src.exists() {
+                        eprintln!("mv: cannot stat '{opt}': No such file or directory");
+                        continue;
+                    }
+                    if src.is_file() {
+                        let new_dest = destination.join(src.file_name().unwrap());
+                        if let Err(e) = fs::rename(src, new_dest) {
+                            eprintln!("mv: +>{e}");
+                            continue;
+                        }
+                    } else if src.is_dir() {
+                        if let Err(e) = move_dir_recursivly(src, destination) {
+                            eprintln!("mv: {e}");
+                            continue;
+                        }
+                    }
+                }
             } else if dest.is_file() {
-                let files = get_args(&args);
+                let files = get_args(&args, destination);
                 if files.len() > 2 {
                     eprintln!("mv: target '{:?}' is not a directory", destination);
                     return;
@@ -60,9 +83,13 @@ pub fn mv_handler(args: Vec<String>) {
                             return;
                         }
                     }
+
+                    let src_path = Path::new(&files[0]);
+                    if let Err(e) = fs::rename(src_path, destination) {
+                        eprintln!("mv: {e}");
+                        return;
+                    }
                 }
-                cp_handler(files.clone());
-                rm_handler(files[..files.len() - 1].to_vec());
             }
         }
         Err(e) => {
@@ -71,15 +98,44 @@ pub fn mv_handler(args: Vec<String>) {
     }
 }
 
-pub fn get_args(args: &Vec<String>) -> Vec<String> {
+pub fn get_args(args: &Vec<String>, destination: &Path) -> Vec<String> {
     let mut files: Vec<String> = vec![];
     for opt in args {
+        if opt == "." || opt == ".." {
+            eprintln!(
+                "mv: cannot move '{opt}' to {:?}: Device or resource busy",
+                destination
+            );
+            continue;
+        }
         let file = Path::new(&opt);
         if !file.exists() {
             eprintln!("mv: cannot stat '{opt}': No such file or directory");
             continue;
         }
+
         files.push(opt.clone());
     }
     files
+}
+
+pub fn move_dir_recursivly(src: &Path, dest: &Path) -> Result<(), Error> {
+    let new_dest = dest.join(src.file_name().unwrap());
+    println!("{:?}=>{:?}", src,new_dest);
+    if src.is_file() {
+        if let Err(e) = fs::rename(src, new_dest) {
+            return Err(e);
+        }
+    } else if src.is_dir() {
+          if let Err(e)=fs::create_dir_all(&new_dest){
+            return Err(e);
+          }
+        for child in direct_children(src) {
+            if let Err(e) = move_dir_recursivly(&child, &new_dest) {
+                return Err(e);
+            }
+        }
+    }
+
+    Ok(())
 }

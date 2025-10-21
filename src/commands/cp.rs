@@ -1,9 +1,9 @@
+use crate::utils::direct_children;
 use std::{
     fs::{self, File},
     io::{self},
     path::{Path, PathBuf},
 };
-
 #[derive(Debug, Clone)]
 pub struct Cp {
     pub options: Vec<String>,
@@ -83,8 +83,6 @@ pub fn cp_handler(args: Vec<String>) {
     let dest_meta = fs::metadata(&cp.target);
 
     if dest_meta.is_err() {
-       
-
         let src_path = Path::new(&cp.options[0]);
         let dest_path = Path::new(&cp.target);
         if src_path == dest_path {
@@ -95,7 +93,6 @@ pub fn cp_handler(args: Vec<String>) {
             return;
         }
         if let Err(err) = Cp::exec(src_path, dest_path) {
-            
             eprintln!("cp: error copying file: {}", err);
         }
 
@@ -147,14 +144,4 @@ pub fn cp_handler(args: Vec<String>) {
             }
         }
     }
-}
-
-pub fn direct_children(dir: &Path) -> Vec<PathBuf> {
-    let mut children = Vec::new();
-    if let Ok(entries) = fs::read_dir(dir) {
-        for entry in entries.flatten() {
-            children.push(entry.path());
-        }
-    }
-    children
 }

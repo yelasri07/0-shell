@@ -14,6 +14,9 @@ pub fn rm_handler(args: Vec<String>) {
     for arg in args {
         if arg == "-r" {
             dir_flag = true;
+        } else if arg == "." || arg == ".." {
+            eprintln!("rm: refusing to remove '.' or '..' directory: skipping '..'");
+            continue;
         } else {
             targets.push(arg);
         }
