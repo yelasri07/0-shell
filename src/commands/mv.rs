@@ -29,62 +29,68 @@ pub fn mv_handler(args: Vec<String>) {
         }
 
         return;
+    } else if !destination.exists() && args.len() > 2 {
+        eprintln!("mv: target '{}' is not a directory", &args[args.len() - 1]);
+        return;
     }
 
-            if destination.is_dir() {
-                for opt in args[..args.len() - 1].iter() {
-                    if opt == "." || opt == ".." {
-                        eprintln!(
-                            "mv: cannot move '{opt}' to {:?}: Device or resource busy",
-                            destination
-                        );
-                        continue;
-                    }
-                    let src: &Path = Path::new(&opt);
-                    if !src.exists() {
-                        eprintln!("mv: cannot stat '{opt}': No such file or directory");
-                        continue;
-                    }
-                    if src.is_file() {
-                        let new_dest = destination.join(src.file_name().unwrap());
-                        if let Err(e) = fs::rename(src, new_dest) {
-                            eprintln!("mv: {e}");
-                            continue;
-                        }
-                    } else if src.is_dir() {
-                        if let Err(e) = move_dir_recursivly(src, destination) {
-                            eprintln!("mv: {e}");
-                            continue;
-                        }
-                    }
+    if destination.is_dir() {
+        for opt in args[..args.len() - 1].iter() {
+            if opt == "." || opt == ".." {
+                eprintln!(
+                    "mv: cannot move '{opt}' to {:?}: Device or resource busy",
+                    destination
+                );
+                continue;
+            }
+            let src: &Path = Path::new(&opt);
+            if !src.exists() {
+                eprintln!("mv: cannot stat '{opt}': No such file or directory");
+                continue;
+            }
+            if src.is_file() {
+                let new_dest = destination.join(src.file_name().unwrap());
+                if let Err(e) = fs::rename(src, new_dest) {
+                    eprintln!("mv: {e}");
+                    continue;
                 }
-            } else if destination.is_file() {
-                if args.len() > 2 {
-                    eprintln!("mv: target '{:?}' is not a directory", destination);
-                    return;
-                    
-                } else if args.len() == 2 {
-                    let src_meta = fs::metadata(&args[0]);
-                    if let Ok(file) = src_meta {
-                        if !file.is_file() {
-                            eprintln!(
-                                "mv: cannot overwrite non-directory {:?} with directory '{}'",
-                                destination, args[0]
-                            );
-                            return;
-                        }
-                    }
-
-                    let src_path = Path::new(&args[0]);
-                    if let Err(e) = fs::rename(src_path, destination) {
-                        eprintln!("mv: {e}");
-                        return;
-                    }
+            } else if src.is_dir() {
+                if let Err(e) = move_dir_recursivly(src, destination) {
+                    eprintln!("mv: {e}");
+                    continue;
                 }
             }
-       
+        }
+    } else if destination.is_file() {
+        if args.len() > 2 {
+            eprintln!("mv: target '{:?}' is not a directory", destination);
+            return;
+        } else if args.len() == 2 {
+            let src_meta = fs::metadata(&args[0]);
+            if let Ok(file) = src_meta {
+                if !file.is_file() {
+                    eprintln!(
+                        "mv: cannot overwrite non-directory {:?} with directory '{}'",
+                        destination, args[0]
+                    );
+                    return;
+                }
+            }
+            let src_path = Path::new(&args[0]);
+            if src_path.file_name() == destination.file_name() {
+                eprintln!(
+                    "mv: {:?} and {:?} are the same file",
+                     src_path.file_name().unwrap(),  destination.file_name().unwrap()
+                );
+                return;
+            }
+            if let Err(e) = fs::rename(src_path, destination) {
+                eprintln!("mv: {e}");
+                return;
+            }
+        }
+    }
 }
-
 
 pub fn move_dir_recursivly(src: &Path, dest: &Path) -> Result<(), Error> {
     let new_dest = dest.join(src.file_name().unwrap());
