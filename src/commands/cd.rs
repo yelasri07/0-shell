@@ -21,6 +21,7 @@ pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: PathBuf, 
             eprintln!("cd: OLDPWD not set");
             return (PathBuf::new(), current_path);
         }
+        println!("{}", prev_path.display());
         new_dir = prev_path.clone();
     }
 

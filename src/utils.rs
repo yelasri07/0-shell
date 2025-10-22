@@ -4,8 +4,14 @@ use std::{
 
 use colored::Colorize;
 
-pub fn read_line(path: &str) -> (String,usize) {
-    print!("{} ", path.blue().underline().bold());
+pub fn read_line(path: &str, home: &str) -> (String,usize) {
+    let p = if path.starts_with(home) {
+        "~".to_string() + &path[home.len()..path.len()]
+    } else {
+        path.to_string()
+    };
+
+    print!("{} ", p.blue().underline().bold());
     io::stdout().flush().unwrap();
 
     let mut input = String::new();
@@ -20,6 +26,7 @@ pub fn get_current_dir() -> PathBuf {
         Err(_) => PathBuf::new()
     }
 }
+
 pub fn direct_children(dir: &Path) -> Vec<PathBuf> {
     let mut children = Vec::new();
     if let Ok(entries) = fs::read_dir(dir) {

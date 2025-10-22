@@ -6,7 +6,7 @@ use crate::{commands::*, utils::read_line};
 pub struct Shell {
     arg: String,
     pub args: Vec<String>,
-    home: String,
+    pub home: String,
     is_quotes: bool,
     quotes_type: char,
     is_backslash: bool,
@@ -108,7 +108,7 @@ impl Shell {
 
         if self.is_backslash {
             self.is_backslash = false;
-            let (input, _) = read_line(">");
+            let (input, _) = read_line(">", &self.home);
             self.parse_input(input.as_str());
         }
 
@@ -122,7 +122,7 @@ impl Shell {
             } else {
                 "dquote>"
             };
-            let (input, n_bytes) = read_line(quote_text);
+            let (input, n_bytes) = read_line(quote_text, &self.home);
             if n_bytes == 0 {
                 self.is_quotes = false;
                 eprintln!(
