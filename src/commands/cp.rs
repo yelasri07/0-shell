@@ -26,11 +26,9 @@ impl Cp {
                         return Err(err);
                     }
                 } else if meta.is_dir() {
-                    let file_name = src_path
-                        .file_name()
-                        .map(|n| n.to_string_lossy().to_string())
-                        .unwrap_or_else(|| "unknown".to_string());
-                    let new_path = dest_path.join(file_name);
+                    
+                    let new_path = dest_path.join(src_path);
+            
                     if let Err(err) = fs::copy(&src_path, new_path) {
                         return Err(err);
                     }
@@ -82,7 +80,7 @@ pub fn cp_handler(args: Vec<String>) {
 
     let dest_meta = fs::metadata(&cp.target);
 
-    if dest_meta.is_err() {
+    if dest_meta.is_err() && cp.options.len() == 1 {
         let src_path = Path::new(&cp.options[0]);
         let dest_path = Path::new(&cp.target);
         if src_path == dest_path {
@@ -96,6 +94,9 @@ pub fn cp_handler(args: Vec<String>) {
             eprintln!("cp: error copying file: {}", err);
         }
 
+        return;
+    } else if dest_meta.is_err() && cp.options.len() != 1 {
+        eprintln!("cp: target '{}' is not a directory", cp.target);
         return;
     }
 
@@ -134,7 +135,6 @@ pub fn cp_handler(args: Vec<String>) {
                     eprintln!("cp: error copying file: {}", err);
                     return;
                 }
-
                 PathBuf::from(opt)
             };
 
