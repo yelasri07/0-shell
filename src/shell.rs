@@ -174,7 +174,7 @@ impl Shell {
                 let (prev_path, current_path) = cd_handler(
                     args,
                     self.prev_path.to_path_buf(),
-                    self.current_path.to_path_buf(),
+                    &mut self.current_path.to_path_buf(),
                     self.home.clone(),
                 );
                 self.prev_path = prev_path;
