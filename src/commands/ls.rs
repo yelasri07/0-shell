@@ -289,6 +289,9 @@ impl Entity {
         let now = SystemTime::now()
             .duration_since(modified_time)
             .unwrap_or_default();
+        let now = SystemTime::now()
+            .duration_since(modified_time)
+            .unwrap_or_default();
         let six_months = Duration::from_secs(60 * 60 * 24 * 30 * 6);
 
         self.time = if now > six_months {
@@ -308,6 +311,7 @@ fn list_items(flags: Vec<char>, full_path: String, entity: String) {
         let file = get_path(full_path.clone());
         list.push(Entity::new(parent.clone(),file));
     } else {
+        // todo : handle the errors alhmar
         // todo : handle the errors alhmar
         let files = fs::read_dir(&full_path)
             .unwrap()
