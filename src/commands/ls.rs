@@ -283,6 +283,9 @@ impl Entity {
         let now = SystemTime::now()
             .duration_since(modified_time)
             .unwrap_or_default();
+        let now = SystemTime::now()
+            .duration_since(modified_time)
+            .unwrap_or_default();
         let six_months = Duration::from_secs(60 * 60 * 24 * 30 * 6);
 
         self.time = if now > six_months {
