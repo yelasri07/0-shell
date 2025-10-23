@@ -33,9 +33,8 @@ pub fn rm_handler(args: Vec<String>) {
         }
 
         if path.is_file() {
-            match fs::remove_file(path) {
-                Ok(_) => (),
-                Err(e) => eprintln!("rm: failed to remove '{}': {}", target, e),
+            if let Err(e) = fs::remove_file(path) {
+                eprintln!("rm: failed to remove '{}': {}", target, e);
             }
         } else if path.is_dir() {
             if dir_flag {
