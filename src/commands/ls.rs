@@ -1,10 +1,10 @@
 use chrono::{DateTime, Local};
-use colored::Colorize;
+// use colored::Colorize;
 use core::fmt;
 use std::collections::HashSet;
-use std::fmt::{Display, format};
-use std::fs::{self, FileType};
-use std::fs::{Metadata, read};
+use std::fmt::{write, Display};
+use std::fs::{self};
+use std::fs::{Metadata};
 use std::io;
 use std::os::unix::fs::*;
 use std::path::{Path, PathBuf};
@@ -259,16 +259,23 @@ impl Entity {
     fn long_list(&mut self) {
         let metadata = fs::symlink_metadata(self.path.clone()).expect("");
         self.is_long = true;
-        self.permissions = get_permissions(metadata.permissions().mode() & 0o777);
+
+        let permissions = get_permissions(metadata.permissions().mode() & 0o777);
+        if permissions.contains("x") && self.file_type == EntityType::File {
+            self.file_type = EntityType::Executable;
+        }
+        self.permissions = permissions;
+
         self.nlink = metadata.nlink();
+
         let uid = metadata.uid();
         let gid = metadata.gid();
         self.uid = get_user_by_uid(uid)
             .map(|u| u.name().to_string_lossy().into_owned())
-            .expect("");
+            .unwrap_or(uid.to_string());
         self.gid = get_group_by_gid(gid)
             .map(|g| g.name().to_string_lossy().into_owned())
-            .expect("");
+            .unwrap_or(gid.to_string());
 
         self.size = metadata.clone().len().to_string();
         self.get_modified_time(metadata);
@@ -283,9 +290,6 @@ impl Entity {
         let now = SystemTime::now()
             .duration_since(modified_time)
             .unwrap_or_default();
-        let now = SystemTime::now()
-            .duration_since(modified_time)
-            .unwrap_or_default();
         let six_months = Duration::from_secs(60 * 60 * 24 * 30 * 6);
 
         self.time = if now > six_months {
@@ -296,8 +300,9 @@ impl Entity {
     }
 }
 
-impl Display for Entity {
+impl fmt::Display for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // 1. Determine base name and suffix
         let mut name = self.name.to_owned();
         let (symbol, mut sufix) = match self.file_type {
             EntityType::File => ("-", ""),
@@ -315,15 +320,17 @@ impl Display for Entity {
             sufix = "";
         }
 
-        if let Some(link_target) = self.link_target.clone() {
+        if let Some(link_target) = self.link_target.clone() { 
             name = format!("{} -> {}", self.name, link_target.display());
         }
 
-        let mut res = if self.is_long {
-            format!(
-                "{}{} {} {} {} {} {} {}{}",
-                symbol,
-                self.permissions,
+        if self.is_long {
+            let mode = format!("{}{}", symbol, self.permissions);
+
+            write!(
+                f,
+                "{:10} {:>4} {:<8} {:<8} {:>8} {} {}{}",
+                mode,
                 self.nlink,
                 self.uid,
                 self.gid,
@@ -333,12 +340,9 @@ impl Display for Entity {
                 sufix
             )
         } else {
-            format!("{}{}", self.name, sufix)
-        };
-
-        res = res.split_whitespace().collect::<Vec<_>>().join(" ");
-
-        write!(f, "{}", res.trim())
+            // Short listing: only name and suffix
+            write!(f,"{}{}", self.name, sufix)
+        }
     }
 }
 
