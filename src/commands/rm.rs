@@ -8,17 +8,14 @@ pub fn rm_handler(args: Vec<String>) {
     }
 
     let mut dir_flag = false;
-    let mut targets: Vec<String> = Vec::new();
+    let mut targets= Vec::new();
 
     //check -r flage
     for arg in args {
-        if arg == "-r" {
-            dir_flag = true;
-        } else if arg == "." || arg == ".." {
-            eprintln!("rm: refusing to remove '.' or '..' directory: skipping '..'");
-            continue;
-        } else {
-            targets.push(arg);
+         match arg.as_str() {
+            "-r" => dir_flag = true,
+            "." | ".." => eprintln!("rm: refusing to remove '.' or '..'"),
+            _ => targets.push(arg),
         }
     }
 
