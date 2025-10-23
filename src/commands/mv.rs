@@ -59,6 +59,12 @@ pub fn mv_handler(args: Vec<String>) {
                     eprintln!("mv: {e}");
                     continue;
                 }
+            } else {
+                 let new_dest = destination.join(src.file_name().unwrap());
+                println!("ssds");
+                if let Err(e) = fs::rename(&src, new_dest) {
+                    return eprintln!("mv: {e}");
+                }
             }
         }
     } else if destination.is_file() {
@@ -80,7 +86,8 @@ pub fn mv_handler(args: Vec<String>) {
             if src_path.file_name() == destination.file_name() {
                 eprintln!(
                     "mv: {:?} and {:?} are the same file",
-                     src_path.file_name().unwrap(),  destination.file_name().unwrap()
+                    src_path.file_name().unwrap(),
+                    destination.file_name().unwrap()
                 );
                 return;
             }
