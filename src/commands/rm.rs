@@ -8,17 +8,14 @@ pub fn rm_handler(args: Vec<String>) {
     }
 
     let mut dir_flag = false;
-    let mut targets: Vec<String> = Vec::new();
+    let mut targets= Vec::new();
 
     //check -r flage
     for arg in args {
-        if arg == "-r" {
-            dir_flag = true;
-        } else if arg == "." || arg == ".." {
-            eprintln!("rm: refusing to remove '.' or '..' directory: skipping '..'");
-            continue;
-        } else {
-            targets.push(arg);
+         match arg.as_str() {
+            "-r" => dir_flag = true,
+            "." | ".." => eprintln!("rm: refusing to remove '.' or '..'"),
+            _ => targets.push(arg),
         }
     }
 
@@ -35,19 +32,22 @@ pub fn rm_handler(args: Vec<String>) {
             continue;
         }
 
-        if path.is_file() {
-            match fs::remove_file(path) {
-                Ok(_) => (),
-                Err(e) => eprintln!("rm: failed to remove '{}': {}", target, e),
+        if path.is_file(){
+            if let Err(e) = fs::remove_file(path) {
+                eprintln!("rm: failed to remove '{}': {}", target, e);
             }
-        } else if path.is_dir() {
+        }else if path.is_dir() {
             if dir_flag {
-                match fs::remove_dir_all(path) {
-                    Ok(_) => (),
-                    Err(e) => eprintln!("rm: failed to remove directory '{}': {}", target, e),
+                if let Err(e) = fs::remove_dir_all(path) {
+                    eprintln!("rm: failed to remove directory '{}': {}", target, e);
                 }
             } else {
                 eprintln!("rm: cannot remove '{}': Is a directory", target);
+            }
+        }else{
+            // it s a fifo or another types ...  remove it
+            if let Err(e) = fs::remove_file(path) {
+                eprintln!("rm: failed to remove '{}': {}", target, e);
             }
         }
     }
