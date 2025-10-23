@@ -8,7 +8,6 @@ pub mod mkdir;
 pub mod mv;
 pub mod pwd;
 pub mod rm;
-pub mod clear;
 
 pub use cat::*;
 pub use cd::*;
@@ -20,4 +19,3 @@ pub use mkdir::*;
 pub use mv::*;
 pub use pwd::*;
 pub use rm::*;
-pub use clear::*;

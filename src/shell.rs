@@ -167,7 +167,6 @@ impl Shell {
             "ls" => ls_handler(args, self.current_path.clone()),
             "mkdir" => mkdir_handler(args),
             "mv" => mv_handler(args),
-            "clear" => clear_handler(),
             "pwd" => pwd_handler(args, &self.current_path),
             _ => rm_handler(args),
         }
