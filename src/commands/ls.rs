@@ -38,12 +38,8 @@ pub fn ls_handler(args: Vec<String>, current_path: String) {
         .collect();
     ls.parse_targets(targets);
 
-    
     ls.execute();
 }
-
-
-
 
 #[derive(Debug, Eq, PartialEq, Default, Clone)]
 struct Target(String, String);
@@ -203,7 +199,6 @@ impl List {
     }
 }
 
-
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
 enum EntityType {
     File,
@@ -227,6 +222,8 @@ struct Entity {
     nlink: u64,
     uid: String,
     gid: String,
+    minor: Option<u32>,
+    major: Option<u32>,
     size: String,
     time: String,
     name: String,
@@ -274,6 +271,13 @@ impl Entity {
         self.get_modified_time(metadata);
 
         self.link_target = read_link(self.clone());
+        if let Some(data) = major_minor(self.clone()) {
+            self.major = Some(data.0);
+            self.minor = Some(data.1);
+        } else {
+            self.major = None;
+            self.minor = None;
+        }
     }
 
     fn get_modified_time(&mut self, metadata: Metadata) {
@@ -379,6 +383,21 @@ fn read_link(entity: Entity) -> Option<PathBuf> {
         return Some(l);
     } else {
         return None;
+    }
+}
+fn major_minor(entity: Entity) -> Option<(u32, u32)> {
+    if entity.file_type != EntityType::CharacterDevice
+        || entity.file_type != EntityType::BlockDevice
+    {
+        return None;
+    }
+    if let Ok(meta) = fs::metadata(entity.path.clone()) {
+        let id_device = meta.rdev();
+        let major = libc::major(id_device);
+        let minor = libc::minor(id_device);
+        return Some((major, minor));
+    } else {
+        None
     }
 }
 
