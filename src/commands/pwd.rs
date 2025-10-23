@@ -1,8 +1,5 @@
-use std::env;
+use std::path::PathBuf;
 
-pub fn pwd_handler(_args: Vec<String>, path: &str) {
-    match env::current_dir() {
-        Ok(path) => println!("{}", path.display()),
-        Err(_) => println!("{}", path),
-    }
+pub fn pwd_handler(path: &PathBuf) {
+    println!("{}", path.display())
 }

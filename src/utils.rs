@@ -1,12 +1,17 @@
 use std::{
-    env,
-    io::{self, Write},
+    env, fs, io::{self, Write}, path::{Path, PathBuf}
 };
 
 use colored::Colorize;
 
-pub fn read_line(path: &str) -> (String,usize) {
-    print!("{} ", path.blue().underline().bold());
+pub fn read_line(path: &str, home: &str) -> (String,usize) {
+    let p = if path.starts_with(home) {
+        "~".to_string() + &path[home.len()..path.len()]
+    } else {
+        path.to_string()
+    };
+
+    print!("{} ", p.blue().underline().bold());
     io::stdout().flush().unwrap();
 
     let mut input = String::new();
@@ -15,9 +20,19 @@ pub fn read_line(path: &str) -> (String,usize) {
     (input.trim().to_string(),n_bytes)
 }
 
-pub fn get_current_dir() -> String {
+pub fn get_current_dir() -> PathBuf {
     match env::current_dir() {
-        Ok(path) => format!("{:?}", path).trim_matches('"').to_string(),
-        Err(_) => "".to_string()
+        Ok(path) => path,
+        Err(_) => PathBuf::new()
     }
+}
+
+pub fn direct_children(dir: &Path) -> Vec<PathBuf> {
+    let mut children = Vec::new();
+    if let Ok(entries) = fs::read_dir(dir) {
+        for entry in entries.flatten() {
+            children.push(entry.path());
+        }
+    }
+    children
 }

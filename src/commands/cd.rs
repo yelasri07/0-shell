@@ -1,22 +1,28 @@
-use std::{env, io::ErrorKind};
+use std::{env, io::ErrorKind, path::PathBuf};
 
 use crate::utils::get_current_dir;
 
-pub fn cd_handler(args: Vec<String>, prev_path: &String) -> String {
-    let mut new_dir: &str = &args.join(" ");
-
-    if new_dir.is_empty() || new_dir == "~" {
-        new_dir = "/home/";
+pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: &mut PathBuf, home: String) -> (PathBuf, PathBuf) {
+    if args.len() > 1 {
+        eprintln!("cd: too many arguments");
+        return (prev_path, current_path.to_path_buf())
     }
 
-    let path = get_current_dir();
+    let mut new_dir: PathBuf = PathBuf::from(args.join(" "));
 
-    if new_dir == "-" {
-        if prev_path.is_empty() {
+    if new_dir.as_os_str().is_empty() || new_dir.as_os_str() == "--" {
+        new_dir = PathBuf::from(home);
+    }
+
+    let p_path = get_current_dir();
+
+    if new_dir.as_os_str() == "-" {
+        if prev_path.as_os_str().is_empty() {
             eprintln!("cd: OLDPWD not set");
-            return "".to_string();
+            return (PathBuf::new(), current_path.to_path_buf());
         }
-        new_dir = prev_path;
+        println!("{}", prev_path.display());
+        new_dir = prev_path.clone();
     }
 
     if let Err(e) = env::set_current_dir(new_dir) {
@@ -25,8 +31,15 @@ pub fn cd_handler(args: Vec<String>, prev_path: &String) -> String {
             ErrorKind::PermissionDenied => eprintln!("cd: Permission denied"),
             _ => eprintln!("{}", e),
         }
-        return prev_path.to_string();
+        return (prev_path, current_path.to_path_buf());
     }
 
-    path
+    let mut c_path = get_current_dir();
+    if c_path.as_os_str().is_empty() {
+        eprintln!("cd: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory");
+        current_path.push("..");
+        c_path.push(current_path);
+    }
+
+    (p_path, c_path)
 }

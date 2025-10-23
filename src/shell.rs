@@ -1,31 +1,45 @@
+use std::path::PathBuf;
+
 use crate::{commands::*, utils::read_line};
 
+#[derive(Default)]
 pub struct Shell {
     arg: String,
     pub args: Vec<String>,
+    pub home: String,
     is_quotes: bool,
     quotes_type: char,
-    prev_path: String,
     is_backslash: bool,
-    pub current_path: String,
+    prev_path: PathBuf,
+    pub current_path: PathBuf,
 }
 
 impl Shell {
     pub fn new() -> Self {
         Self {
-            arg: String::new(),
-            prev_path: String::new(),
-            current_path: String::new(),
-            args: vec![],
-            quotes_type: '"',
-            is_quotes: false,
-            is_backslash: false,
+            ..Default::default()
         }
     }
 
-    pub fn add_arg(&mut self, arg: String) {
+    pub fn add_arg_with_quotes(&mut self, arg: String) {
         if !arg.is_empty() {
             self.args.push(arg);
+            self.arg.clear();
+        }
+    }
+
+    pub fn add_arg(&mut self) {
+        if !self.arg.is_empty() {
+            let mut arg = self.arg.clone().trim().to_string();
+            if arg == "~" || (arg.starts_with("~") && arg.chars().nth(1).unwrap_or(' ') == '/') {
+                arg = if arg.len() > 1 {
+                    self.home.clone() + &arg[1..arg.len()]
+                } else {
+                    self.home.clone()
+                }
+            }
+            self.args.push(arg);
+            self.arg.clear();
         }
     }
 
@@ -37,14 +51,18 @@ impl Shell {
         self.arg = value
     }
 
-    pub fn set_current_path(&mut self, value: String) {
-        if !value.is_empty() {
+    pub fn set_current_path(&mut self, value: PathBuf) {
+        if !value.as_os_str().is_empty() {
             self.current_path = value
         }
     }
 
     pub fn set_quotes_type(&mut self, value: char) {
         self.quotes_type = value
+    }
+
+    pub fn set_home(&mut self, value: String) {
+        self.home = value
     }
 
     pub fn parse_input(&mut self, input: &str) {
@@ -73,15 +91,13 @@ impl Shell {
                 self.is_quotes = false;
                 self.quotes_type = '"';
                 if input.chars().nth(i + 1).unwrap_or(' ') == ' ' {
-                    self.add_arg(self.arg.clone());
-                    self.arg.clear();
+                    self.add_arg_with_quotes(self.arg.clone());
                 }
                 continue;
             }
 
             if ch == ' ' && !self.is_quotes && !self.arg.is_empty() {
-                self.add_arg(self.arg.clone().trim().to_string());
-                self.arg.clear();
+                self.add_arg();
                 continue;
             }
 
@@ -92,13 +108,12 @@ impl Shell {
 
         if self.is_backslash {
             self.is_backslash = false;
-            let (input, _) = read_line(">");
+            let (input, _) = read_line(">", &self.home);
             self.parse_input(input.as_str());
         }
 
         if !self.arg.is_empty() && !self.is_quotes {
-            self.add_arg(self.arg.clone().trim().to_string());
-            self.arg.clear();
+            self.add_arg();
         }
 
         if self.is_quotes {
@@ -107,7 +122,7 @@ impl Shell {
             } else {
                 "dquote>"
             };
-            let (input, n_bytes) = read_line(quote_text);
+            let (input, n_bytes) = read_line(quote_text, &self.home);
             if n_bytes == 0 {
                 self.is_quotes = false;
                 eprintln!(
@@ -157,17 +172,22 @@ impl Shell {
         match cmd {
             "cat" => cat_handler(args),
             "cd" => {
-                self.prev_path = cd_handler(args, &self.prev_path)
-                    .trim_matches('"')
-                    .to_string()
+                let (prev_path, current_path) = cd_handler(
+                    args,
+                    self.prev_path.to_path_buf(),
+                    &mut self.current_path.to_path_buf(),
+                    self.home.clone(),
+                );
+                self.prev_path = prev_path;
+                self.set_current_path(current_path);
             }
             "cp" => cp_handler(args),
             "echo" => echo_handler(args),
             "exit" => exit_handler(args),
-            "ls" => ls_handler(args, self.current_path.clone()),
-            "mkdir" => mkdir_handler(args),
+            "ls" => ls_handler(args, self.current_path.clone().display().to_string()),
+            "mkdir" => mkdir_handler(args,self.current_path.clone()),
             "mv" => mv_handler(args),
-            "pwd" => pwd_handler(args, &self.current_path),
+            "pwd" => pwd_handler(&self.current_path),
             _ => rm_handler(args),
         }
     }
