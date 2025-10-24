@@ -25,7 +25,26 @@ pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: &mut Path
         new_dir = prev_path.clone();
     }
 
-    if let Err(e) = env::set_current_dir(new_dir.clone()) {
+    let mut c_path = current_path.to_path_buf();
+    if get_current_dir().as_os_str().is_empty() {
+        eprintln!("cd: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory");
+        c_path = c_path.join("..");
+    }
+    else if new_dir.is_relative() {
+        c_path = get_logical_path(&p_path.join(new_dir.clone()).display().to_string());
+        // match fs::canonicalize(c_path.clone()) {
+        //     Err(_) => {
+        //         c_path = get_current_dir()
+        //     }
+        //     _ => {}
+        // }
+    } else {
+        c_path = new_dir.to_path_buf()
+    }
+
+    // println!("{:?}", c_path);
+
+    if let Err(e) = env::set_current_dir(c_path.clone()) {
         match e.kind() {
             ErrorKind::NotFound => eprintln!("cd: No such file or directory"),
             ErrorKind::PermissionDenied => eprintln!("cd: Permission denied"),
@@ -34,22 +53,6 @@ pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: &mut Path
         return (prev_path, current_path.to_path_buf());
     }
 
-    let mut c_path = current_path.to_path_buf();
-    if get_current_dir().as_os_str().is_empty() {
-        eprintln!("cd: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory");
-        c_path = c_path.join("..");
-    }
-    else if new_dir.is_relative() {
-        c_path = get_logical_path(&p_path.join(new_dir.clone()).display().to_string());
-        match fs::canonicalize(c_path.clone()) {
-            Err(_) => {
-                c_path = get_current_dir()
-            }
-            _ => {}
-        }
-    } else {
-        c_path = new_dir.to_path_buf()
-    }
 
     (p_path, c_path)
 }
