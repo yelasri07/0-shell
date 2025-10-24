@@ -25,7 +25,7 @@ pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: &mut Path
         new_dir = prev_path.clone();
     }
 
-    if let Err(e) = env::set_current_dir(new_dir) {
+    if let Err(e) = env::set_current_dir(new_dir.clone()) {
         match e.kind() {
             ErrorKind::NotFound => eprintln!("cd: No such file or directory"),
             ErrorKind::PermissionDenied => eprintln!("cd: Permission denied"),
@@ -41,5 +41,37 @@ pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: &mut Path
         c_path.push(current_path);
     }
 
+    if new_dir.is_relative() {
+        new_dir = get_logical_path(&p_path.join(new_dir).display().to_string());
+    }
+
+    println!("{:?}", new_dir);
+
     (p_path, c_path)
+}
+
+fn get_logical_path(path: &str) -> PathBuf {
+    let mut path_elements = path.split('/').collect::<Vec<&str>>();
+    for i in 0..path_elements.len() {
+        if path_elements[i] == ".." {
+            let mut cp = i - 1;
+            while cp > 0 {
+                if path_elements[cp] == ".." {
+                    cp -= 1;
+                    continue;
+                }
+                path_elements[cp] = "..";
+                break;
+            }
+        }
+    }
+
+    let mut new_path = PathBuf::new();
+    for i in 0..path_elements.len() {
+        if path_elements[i] != ".." {
+            new_path = new_path.join(path_elements[i]);
+        }
+    }
+
+    new_path
 }
