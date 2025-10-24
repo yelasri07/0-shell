@@ -14,7 +14,7 @@ pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: &mut Path
         new_dir = PathBuf::from(home);
     }
 
-    let p_path = get_current_dir();
+    let p_path = current_path.to_path_buf();
 
     if new_dir.as_os_str() == "-" {
         if prev_path.as_os_str().is_empty() {
@@ -34,18 +34,16 @@ pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: &mut Path
         return (prev_path, current_path.to_path_buf());
     }
 
-    let mut c_path = get_current_dir();
-    if c_path.as_os_str().is_empty() {
+    let mut c_path = current_path.to_path_buf();
+    if get_current_dir().as_os_str().is_empty() {
         eprintln!("cd: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory");
-        current_path.push("..");
-        c_path.push(current_path);
+        c_path = c_path.join("..");
     }
-
-    if new_dir.is_relative() {
-        new_dir = get_logical_path(&p_path.join(new_dir).display().to_string());
+    else if new_dir.is_relative() {
+        c_path = get_logical_path(&p_path.join(new_dir.clone()).display().to_string());
+    } else {
+        c_path = new_dir.to_path_buf()
     }
-
-    println!("{:?}", new_dir);
 
     (p_path, c_path)
 }
@@ -66,7 +64,7 @@ fn get_logical_path(path: &str) -> PathBuf {
         }
     }
 
-    let mut new_path = PathBuf::new();
+    let mut new_path = PathBuf::from("/");
     for i in 0..path_elements.len() {
         if path_elements[i] != ".." {
             new_path = new_path.join(path_elements[i]);
