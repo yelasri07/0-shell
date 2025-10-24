@@ -1,4 +1,4 @@
-use std::{env, io::ErrorKind, path::PathBuf};
+use std::{env, fs, io::ErrorKind, path::PathBuf};
 
 use crate::utils::get_current_dir;
 
@@ -41,6 +41,12 @@ pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: &mut Path
     }
     else if new_dir.is_relative() {
         c_path = get_logical_path(&p_path.join(new_dir.clone()).display().to_string());
+        match fs::canonicalize(c_path.clone()) {
+            Err(_) => {
+                c_path = get_current_dir()
+            }
+            _ => {}
+        }
     } else {
         c_path = new_dir.to_path_buf()
     }
