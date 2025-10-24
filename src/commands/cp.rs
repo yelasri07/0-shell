@@ -2,6 +2,7 @@ use crate::utils::direct_children;
 use std::{
     fs::{self, File},
     io::{self},
+    os::unix::fs::FileTypeExt,
     path::{Path, PathBuf},
 };
 #[derive(Debug, Clone)]
@@ -26,10 +27,13 @@ impl Cp {
                         return Err(err);
                     }
                 } else if meta.is_dir() {
-                    
                     let new_path = dest_path.join(src_path);
-            
+
                     if let Err(err) = fs::copy(&src_path, new_path) {
+                        return Err(err);
+                    }
+                } else {
+                    if let Err(err) = fs::copy(&src_path, dest_path) {
                         return Err(err);
                     }
                 }
@@ -102,7 +106,7 @@ pub fn cp_handler(args: Vec<String>) {
 
     let target = dest_meta.unwrap();
 
-    if target.is_file() {
+    if target.file_type().is_file() || target.file_type().is_fifo() {
         if cp.options.len() != 1 {
             eprintln!("cp: target '{}' is not a directory", cp.target);
             return;
@@ -124,7 +128,7 @@ pub fn cp_handler(args: Vec<String>) {
         }
     }
 
-    if target.is_dir() {
+    if target.file_type().is_dir() {
         for opt in cp.options.iter() {
             let src_path = Path::new(opt);
             let dest_path = Path::new(&cp.target);

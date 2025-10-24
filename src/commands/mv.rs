@@ -49,9 +49,19 @@ pub fn mv_handler(args: Vec<String>) {
                 continue;
             }
             if src.is_file() {
-                let new_dest = destination.join(src.file_name().unwrap());
-                if let Err(e) = fs::rename(src, new_dest) {
-                    eprintln!("mv: {e}");
+                if let Some(file_name) = src.file_name() {
+                    let new_dest = destination.join(file_name);
+
+                    if let Err(e) = fs::rename(&src, new_dest) {
+                        eprintln!("mv: {e}");
+                        continue;
+                    }
+                } else {
+                    eprintln!(
+                        "mv: cannot join {:?} with {:?}",
+                        destination,
+                        src.file_name()
+                    );
                     continue;
                 }
             } else if src.is_dir() {
@@ -60,10 +70,20 @@ pub fn mv_handler(args: Vec<String>) {
                     continue;
                 }
             } else {
-                 let new_dest = destination.join(src.file_name().unwrap());
-                println!("ssds");
-                if let Err(e) = fs::rename(&src, new_dest) {
-                    return eprintln!("mv: {e}");
+                if let Some(file_name) = src.file_name() {
+                    let new_dest = destination.join(file_name);
+
+                    if let Err(e) = fs::rename(&src, new_dest) {
+                        eprintln!("mv: {e}");
+                        continue;
+                    }
+                } else {
+                    eprintln!(
+                        "mv: cannot join {:?} with {:?}",
+                        destination,
+                        src.file_name()
+                    );
+                    continue;
                 }
             }
         }
