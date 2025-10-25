@@ -1,5 +1,5 @@
 use std::{
-    env, fs, io::{self, Error, Write}, path::{Path, PathBuf}
+    env, fs, io::{self, Write}, path::{Path, PathBuf}
 };
 
 use colored::Colorize;

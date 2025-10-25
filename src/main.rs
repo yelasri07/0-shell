@@ -2,7 +2,7 @@ mod commands;
 mod shell;
 mod utils;
 
-use std::{env, path::PathBuf};
+use std::env;
 
 use utils::*;
 

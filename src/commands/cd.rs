@@ -23,7 +23,7 @@ pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: &mut Path
         println!("{}", prev_path.display());
         new_dir = prev_path.clone();
     }
-    
+
     let p_path = get_current_dir();
 
     if let Err(e) = env::set_current_dir(new_dir) {
@@ -45,28 +45,28 @@ pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: &mut Path
     (p_path, c_path)
 }
 
-fn get_logical_path(path: &str) -> PathBuf {
-    let mut path_elements = path.split('/').collect::<Vec<&str>>();
-    for i in 0..path_elements.len() {
-        if path_elements[i] == ".." {
-            let mut cp = i - 1;
-            while cp > 0 {
-                if path_elements[cp] == ".." {
-                    cp -= 1;
-                    continue;
-                }
-                path_elements[cp] = "..";
-                break;
-            }
-        }
-    }
+// fn get_logical_path(path: &str) -> PathBuf {
+//     let mut path_elements = path.split('/').collect::<Vec<&str>>();
+//     for i in 0..path_elements.len() {
+//         if path_elements[i] == ".." {
+//             let mut cp = i - 1;
+//             while cp > 0 {
+//                 if path_elements[cp] == ".." {
+//                     cp -= 1;
+//                     continue;
+//                 }
+//                 path_elements[cp] = "..";
+//                 break;
+//             }
+//         }
+//     }
 
-    let mut new_path = PathBuf::from("/");
-    for i in 0..path_elements.len() {
-        if path_elements[i] != ".." {
-            new_path = new_path.join(path_elements[i]);
-        }
-    }
+//     let mut new_path = PathBuf::from("/");
+//     for i in 0..path_elements.len() {
+//         if path_elements[i] != ".." {
+//             new_path = new_path.join(path_elements[i]);
+//         }
+//     }
 
-    new_path
-}
+//     new_path
+// }
