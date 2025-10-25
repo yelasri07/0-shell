@@ -2,11 +2,7 @@ mod commands;
 mod shell;
 mod utils;
 
-use std::{
-    env,
-    io::{self, IsTerminal},
-    path::PathBuf,
-};
+use std::{env, io::{self, IsTerminal}};
 
 use utils::*;
 
@@ -18,7 +14,7 @@ fn main() -> Result<(), String> {
         return Err(String::from("Broken pipe."));
     }
 
-    shell.set_current_path(get_current_dir().unwrap_or(PathBuf::from("/home/")));
+    shell.set_current_path(get_current_dir());
     shell.set_home(env::var("HOME").unwrap_or("/home/".to_string()));
     loop {
         let (input, n_bytes) = read_line(

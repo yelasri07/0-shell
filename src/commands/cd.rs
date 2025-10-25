@@ -1,4 +1,4 @@
-use std::{env, fs, io::ErrorKind, path::PathBuf};
+use std::{env, io::ErrorKind, path::PathBuf};
 
 use crate::utils::get_current_dir;
 
@@ -13,9 +13,7 @@ pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: &mut Path
     if new_dir.as_os_str().is_empty() || new_dir.as_os_str() == "--" {
         new_dir = PathBuf::from(home);
     }
-
-    let p_path = current_path.to_path_buf();
-
+    
     if new_dir.as_os_str() == "-" {
         if prev_path.as_os_str().is_empty() {
             eprintln!("cd: OLDPWD not set");
@@ -25,22 +23,7 @@ pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: &mut Path
         new_dir = prev_path.clone();
     }
 
-    let mut c_path = new_dir.to_path_buf();
-    if new_dir.is_relative() {
-        c_path = get_logical_path(&p_path.join(new_dir.clone()).display().to_string());
-        println!("{:?}", c_path);
-
-        match fs::canonicalize(c_path.clone()) {
-            Err(_) => {
-                c_path = get_current_dir().unwrap_or(c_path).join(new_dir)
-            }
-            _ => {}
-        }
-    }
-
-    println!("{:?}", c_path);
-
-    if let Err(e) = env::set_current_dir(c_path.clone()) {
+    if let Err(e) = env::set_current_dir(new_dir) {
         match e.kind() {
             ErrorKind::NotFound => eprintln!("cd: No such file or directory"),
             ErrorKind::PermissionDenied => eprintln!("cd: Permission denied"),
@@ -49,31 +32,39 @@ pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: &mut Path
         return (prev_path, current_path.to_path_buf());
     }
 
+    let p_path = current_path.to_path_buf();
+    let mut c_path = get_current_dir();
+    if c_path.as_os_str().is_empty() {
+        eprintln!("cd: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory");
+        current_path.push("..");
+        c_path.push(current_path);
+    }
+
     (p_path, c_path)
 }
 
-fn get_logical_path(path: &str) -> PathBuf {
-    let mut path_elements = path.split('/').collect::<Vec<&str>>();
-    for i in 0..path_elements.len() {
-        if path_elements[i] == ".." {
-            let mut cp = i - 1;
-            while cp > 0 {
-                if path_elements[cp] == ".." {
-                    cp -= 1;
-                    continue;
-                }
-                path_elements[cp] = "..";
-                break;
-            }
-        }
-    }
+// fn get_logical_path(path: &str) -> PathBuf {
+//     let mut path_elements = path.split('/').collect::<Vec<&str>>();
+//     for i in 0..path_elements.len() {
+//         if path_elements[i] == ".." {
+//             let mut cp = i - 1;
+//             while cp > 0 {
+//                 if path_elements[cp] == ".." {
+//                     cp -= 1;
+//                     continue;
+//                 }
+//                 path_elements[cp] = "..";
+//                 break;
+//             }
+//         }
+//     }
 
-    let mut new_path = PathBuf::from("/");
-    for i in 0..path_elements.len() {
-        if path_elements[i] != ".." {
-            new_path = new_path.join(path_elements[i]);
-        }
-    }
+//     let mut new_path = PathBuf::from("/");
+//     for i in 0..path_elements.len() {
+//         if path_elements[i] != ".." {
+//             new_path = new_path.join(path_elements[i]);
+//         }
+//     }
 
-    new_path
-}
+//     new_path
+// }
