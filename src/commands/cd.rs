@@ -1,16 +1,11 @@
-use std::{env, fs, io::ErrorKind, path::PathBuf};
+use std::{env, io::ErrorKind, path::PathBuf};
 
 use crate::utils::get_current_dir;
 
-pub fn cd_handler(
-    args: Vec<String>,
-    prev_path: PathBuf,
-    current_path: &mut PathBuf,
-    home: String,
-) -> (PathBuf, PathBuf) {
+pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: &mut PathBuf, home: String) -> (PathBuf, PathBuf) {
     if args.len() > 1 {
         eprintln!("cd: too many arguments");
-        return (prev_path, current_path.to_path_buf());
+        return (prev_path, current_path.to_path_buf())
     }
 
     let mut new_dir: PathBuf = PathBuf::from(args.join(" "));
@@ -18,6 +13,7 @@ pub fn cd_handler(
     if new_dir.as_os_str().is_empty() || new_dir.as_os_str() == "--" {
         new_dir = PathBuf::from(home);
     }
+
     
     if new_dir.as_os_str() == "-" {
         if prev_path.as_os_str().is_empty() {
@@ -27,32 +23,23 @@ pub fn cd_handler(
         println!("{}", prev_path.display());
         new_dir = prev_path.clone();
     }
-
-    let p_path = current_path.to_path_buf();
-    let mut c_path = get_logical_path(&p_path.join(new_dir.clone()).display().to_string());
-
-    if let Ok(_) = env::set_current_dir(new_dir.clone()) {
-        println!("=>>>> {:?}", get_current_dir());
-        
-        // return (prev_path, current_path.to_path_buf());
-    }
     
-    println!("1=> {:?}", c_path);
+    let p_path = get_current_dir();
 
-    match fs::canonicalize(c_path.clone()) {
-        Err(_) => c_path = get_current_dir().join(new_dir),
-        _ => {}
-    }
-
-    println!("2=> {:?}", c_path);
-
-    if let Err(e) = env::set_current_dir(c_path.clone()) {
+    if let Err(e) = env::set_current_dir(new_dir) {
         match e.kind() {
             ErrorKind::NotFound => eprintln!("cd: No such file or directory"),
             ErrorKind::PermissionDenied => eprintln!("cd: Permission denied"),
             _ => eprintln!("{}", e),
         }
         return (prev_path, current_path.to_path_buf());
+    }
+
+    let mut c_path = get_current_dir();
+    if c_path.as_os_str().is_empty() {
+        eprintln!("cd: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory");
+        current_path.push("..");
+        c_path.push(current_path);
     }
 
     (p_path, c_path)
