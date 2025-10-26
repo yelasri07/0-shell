@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::{path::PathBuf, process::Command};
 
 use crate::{commands::*, utils::read_line};
 
@@ -65,7 +65,7 @@ impl Shell {
         self.home = value
     }
 
-    pub fn parse_input(&mut self, input: &str) {
+    pub fn parse_input(&mut self, input: &str) -> Result<(), String> {
         for (i, ch) in input.chars().enumerate() {
             if self.is_backslash {
                 if (ch != '$' && ch != '`' && ch != '"' && ch != '\\') && self.is_quotes {
@@ -109,7 +109,7 @@ impl Shell {
         if self.is_backslash {
             self.is_backslash = false;
             let (input, _) = read_line(">", &self.home);
-            self.parse_input(input.as_str());
+            let _ = self.parse_input(input.as_str());
         }
 
         if !self.arg.is_empty() && !self.is_quotes {
@@ -125,41 +125,23 @@ impl Shell {
             let (input, n_bytes) = read_line(quote_text, &self.home);
             if n_bytes == 0 {
                 self.is_quotes = false;
-                eprintln!(
+                return Err(format!(
                     "\nunexpected EOF while looking for matching `{}'\nsyntax error: unexpected end of file",
                     self.quotes_type
-                );
-                return;
+                ));
             }
             self.arg.push('\n');
-            self.parse_input(input.as_str());
+            let _ = self.parse_input(input.as_str());
         }
+
+        Ok(())
     }
 
     pub fn run(&mut self) {
-        let cmds = [
-            "cat".to_string(),
-            "cd".to_string(),
-            "cp".to_string(),
-            "echo".to_string(),
-            "exit".to_string(),
-            "ls".to_string(),
-            "mkdir".to_string(),
-            "mv".to_string(),
-            "pwd".to_string(),
-            "rm".to_string(),
-            "clear".to_string(),
-        ];
-
         let empty_cmd = &"".to_string();
         let cmd: &str = &self.args.iter().next().unwrap_or(empty_cmd);
 
         if cmd.is_empty() {
-            return;
-        }
-
-        if !cmds.contains(&cmd.to_string()) {
-            println!("Command {} not found", cmd);
             return;
         }
 
@@ -185,11 +167,20 @@ impl Shell {
             "echo" => echo_handler(args),
             "exit" => exit_handler(),
             "ls" => ls_handler(args, self.current_path.clone()),
-            "mkdir" => mkdir_handler(args,self.current_path.clone()),
+            "mkdir" => mkdir_handler(args, self.current_path.clone()),
             "mv" => mv_handler(args),
             "pwd" => pwd_handler(&self.current_path),
             "clear" => clear_handler(),
-            _ => rm_handler(args),
+            "rm" => rm_handler(args),
+            _ => {
+                let output = Command::new(cmd).args(args).spawn();
+                match output {
+                    Ok(_) => {}
+                    Err(_) => {
+                        eprintln!("Command {} not found", cmd);
+                    }
+                }
+            }
         }
     }
 }

@@ -36,7 +36,10 @@ fn main() -> Result<(), String> {
         shell.set_arg("".to_string());
         shell.set_quotes_type('"');
 
-        shell.parse_input(input.as_str());
+        if let Err(e) = shell.parse_input(input.as_str()) {
+            eprintln!("{}", e);
+            continue;
+        }
 
         shell.run();
     }
