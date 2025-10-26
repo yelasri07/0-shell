@@ -183,7 +183,7 @@ impl Shell {
             }
             "cp" => cp_handler(args),
             "echo" => echo_handler(args),
-            "exit" => exit_handler(args),
+            "exit" => exit_handler(),
             "ls" => ls_handler(args, self.current_path.clone().display().to_string()),
             "mkdir" => mkdir_handler(args,self.current_path.clone()),
             "mv" => mv_handler(args),
