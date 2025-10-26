@@ -1,18 +1,16 @@
 use chrono::{DateTime, Local};
 // use colored::Colorize;
 use core::fmt;
-use std::collections::HashSet;
-use std::fmt::{Display, write};
 use std::fs::{self};
-use std::fs::{Metadata, symlink_metadata};
-use std::io::{self, Error};
+use std::fs::{Metadata};
+use std::io::{ Error, ErrorKind};
 use std::os::unix::fs::*;
-use std::path::{Path, PathBuf};
+use std::path::{PathBuf};
 use std::time::{Duration, SystemTime};
 use users::{get_group_by_gid, get_user_by_uid};
 
 pub fn ls_handler(args: Vec<String>, current_path: PathBuf) {
-    let ls = match LsConfig::new(args, current_path) {
+    let mut ls = match LsConfig::new(args, current_path) {
         Ok(ls) => ls,
         Err(e) => {
             eprintln!("{}", e);
@@ -20,9 +18,7 @@ pub fn ls_handler(args: Vec<String>, current_path: PathBuf) {
         }
     };
 
-    println!("{:?}", ls);
-
-    // ls.execute();
+    ls.execute();
 }
 
 #[derive(Debug, Eq, PartialEq, Default, Clone)]
@@ -57,9 +53,23 @@ impl LsConfig {
             valid_flags,
         };
 
-        let (flag_args, target_args) = args.into_iter().partition::<Vec<_>, _>(|arg| {
-            arg.starts_with('-') && !arg.chars().skip(1).collect::<String>().is_empty()
-        });
+        let mut flag_args: Vec<String> = Vec::new();
+        let mut target_args: Vec<String> = Vec::new();
+        let mut flag_as_target = false;
+
+        for arg in args {
+            if arg == "--" {
+                flag_as_target = true;
+                continue;
+            }
+
+            if arg.starts_with("-") && !flag_as_target {
+                flag_args.push(arg);
+            } else {
+                target_args.push(arg);
+            }
+        }
+
         ls.parse_flags(flag_args)?;
         ls.parse_targets(target_args);
         Ok(ls)
@@ -69,13 +79,13 @@ impl LsConfig {
         for arg in args {
             for ch in arg.chars().skip(1) {
                 if !self.valid_flags.contains(&ch) {
-                    return Err(format!(""));
+                    return Err(format!("ls: invalid option -- '{}'", ch));
                 }
                 match ch {
                     'l' => self.flags.long = true,
                     'a' => self.flags.all = true,
                     'F' => self.flags.classify = true,
-                    _ => {} // Unreachable due to valid_flags check
+                    _ => {}
                 }
             }
         }
@@ -83,7 +93,7 @@ impl LsConfig {
     }
     fn absolute_path(&self, path: String) -> PathBuf {
         let path = if !path.starts_with("/") {
-            format!("{}/{}", self.current_path.display(), path)
+            format!("{}/{}", self.current_path.display().to_string(), path)
         } else {
             path.clone()
         };
@@ -92,9 +102,8 @@ impl LsConfig {
     }
 
     fn parse_targets(&mut self, args: Vec<String>) {
-        println!("targets =>> {:?}", args);
         if args.is_empty() {
-            let current_dir = match Entity::new(None, self.current_path.clone()) {
+            let current_dir = match Entity::new(self.current_path.clone()) {
                 Ok(entity) => entity,
                 Err(err) => {
                     eprintln!("Err listing current directory => {:?}", err.kind());
@@ -108,17 +117,16 @@ impl LsConfig {
 
         for elem in args {
             let abs_path = self.absolute_path(elem.clone());
-
-            let target_entity = match Entity::new(None, abs_path) {
-                Ok(entity) => entity,
+            match Entity::new(abs_path) {
+                Ok(entity) => {
+                    let target = Target(elem, entity);
+                    self.targets.push(target);
+                }
                 Err(err) => {
-                    eprintln!("Err listing current directory {:?}", err.kind());
-                    return;
+                    // println!("error while parsing: {}", )
+                    handle_ls_erros(err, elem);
                 }
             };
-
-            let target = Target(elem, target_entity);
-            self.targets.push(target);
         }
 
         // order targets by files then folders
@@ -133,91 +141,108 @@ impl LsConfig {
         });
     }
 
-    // fn execute(&mut self) {
-    //     for target in self.targets.clone() {
-    //         let header_entity = Entity::new(None, Path::new(&target.1).to_path_buf());
+    fn execute(&mut self) {
+        for mut target in self.targets.clone() {
+            let mut list = List::new(target.0.clone());
+            list.get_items(&mut target.1, self.flags.clone());
 
-    //         let mut list = List::new(target.0, self.flags.contains(&'l'));
-    //         list.get_items(
-    //             header_entity,
-    //             self.flags.contains(&'l'),
-    //             self.flags.contains(&'F'),
-    //         );
+            if self.targets.len() > 1 {
+                println!("{}:", list.header);
+            }
 
-    //         let list_len = list.items.len();
-    //         for (index, file) in list.items.iter_mut().enumerate() {
-    //             let mut sep = " ";
+            if self.flags.long {
+                println!("total {}", list.total);
+            }
 
-    //             if !self.flags.contains(&'a') && file.name.starts_with(".") {
-    //                 continue;
-    //             }
+            for (_, file) in list.items.iter_mut().enumerate() {
 
-    //             file.is_classified = self.flags.contains(&'F');
+                if !self.flags.all && file.name.starts_with(".") {
+                    continue;
+                }
 
-    //             if self.flags.contains(&'l') {
-    //                 file.long_list();
-    //                 sep = "\n";
-    //             }
+                file.is_classified = self.flags.classify;
 
-    //             print!("{}", file);
-    //             if index != list_len - 1 {
-    //                 print!("{sep}")
-    //             }
-    //         }
-    //     }
-    // }
+                if self.flags.long {
+                    file.long_list();
+                }
+
+                print!("{}", file);
+            }
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone)]
 struct List {
     header: String,
-    total: usize,
+    total: u64,
     items: Vec<Entity>,
-    sep: char,
+    // has_minor_major: bool,
 }
 
 impl List {
-    fn new(header: String, long_listing: bool) -> Self {
-        let sep = if long_listing { '\n' } else { ' ' };
+    fn new(header: String) -> Self {
         let new_list = Self {
             header,
-            sep,
             ..Default::default()
         };
 
         new_list
     }
 
-    fn get_items(&mut self, target: Entity, long_listing: bool, is_classify: bool) {
-        let target_clone = target.clone();
+    fn get_items(&mut self, target: &mut Entity, flags: Flags) {
+        let mut is_dir = false;
 
-        let read_directory = match target_clone.file_type {
-            EntityType::Dir => true,
-            EntityType::SymLink => {
-                if long_listing && !self.header.ends_with("/") {
-                    false
-                } else {
-                    true
-                }
+        match target.file_type {
+            EntityType::Dir => {
+                is_dir = true;
             }
-            _ => false,
+            _ => {}
         };
 
-        println!("is dir: {}", read_directory);
-
-        if !read_directory {
+        if !is_dir && false {
             self.items.push(target.clone());
+            return;
         } else {
-            let files = fs::read_dir(target.path.clone())
-                .unwrap()
-                .map(|res| res.map(|e| e.path()))
-                .collect::<Result<Vec<_>, io::Error>>()
-                .unwrap();
+            let files = match read_dir(target.path.clone()) {
+                Ok(res) => res,
+                Err(error) => {
+                    println!("==> {:?}", error);
+                    return;
+                }
+            };
 
-            self.items = files
-                .into_iter()
-                .map(|p| Entity::new(Some(target.path.clone()), p).unwrap())
-                .collect();
+            if flags.all {
+                target.name = ".".to_string();
+                self.items.push(target.clone());
+                self.total += target.blocks;
+                match Entity::new(target.parent.clone()) {
+                    Ok(mut res) => {
+                        res.name = "..".to_string();
+                        self.items.push(res);
+                        self.total += target.blocks;
+                    }
+                    _ => {}
+                };
+            }
+
+            for file in files {
+                let file_name = file.file_name().unwrap_or_default();
+                match Entity::new(file.clone()) {
+                    Ok(entity) => {
+                        // if flags
+                        self.total += if (entity.is_hidden && flags.all) || !entity.is_hidden {
+                            entity.blocks
+                        } else {
+                            0
+                        };
+                        self.items.push(entity);
+                    }
+                    Err(err) => {
+                        handle_ls_erros(err, file_name.display().to_string());
+                    }
+                };
+            }
         }
 
         self.items.sort_by(|a, b| {
@@ -225,6 +250,12 @@ impl List {
             let file_b = b.name.strip_prefix(".").unwrap_or(&b.name);
             file_a.cmp(&file_b)
         });
+
+        if flags.all {
+            // let current =
+        }
+
+        // let current
     }
 }
 
@@ -244,7 +275,7 @@ enum EntityType {
 
 #[derive(Debug, Default, Eq, PartialEq, Clone)]
 struct Entity {
-    parent: Option<PathBuf>,
+    parent: PathBuf,
     path: PathBuf,
     file_type: EntityType,
     permissions: String,
@@ -256,22 +287,29 @@ struct Entity {
     size: String,
     time: String,
     name: String,
+    blocks: u64,
+    is_hidden: bool,
     link_target: Option<PathBuf>,
     is_classified: bool,
     is_long: bool,
 }
 
 impl Entity {
-    fn new(parent: Option<PathBuf>, path: PathBuf) -> Result<Self, Error> {
+    fn new(path: PathBuf) -> Result<Self, Error> {
         let metadata = fs::symlink_metadata(path.clone())?;
 
         let mut new = Self {
-            parent: parent,
+            parent: get_parent(path.clone()),
             path: path.clone(),
-            name: path.file_name().unwrap().to_string_lossy().to_string(),
+            name: path
+                .file_name()
+                .unwrap_or(Default::default())
+                .to_string_lossy()
+                .to_string(),
+            blocks: metadata.blocks() / 2,
             ..Default::default()
         };
-
+        new.is_hidden = new.name.starts_with(".");
         new.file_type = get_file_type(metadata.permissions().mode());
         new.link_target = read_link(new.clone());
         Ok(new)
@@ -286,7 +324,6 @@ impl Entity {
             self.file_type = EntityType::Executable;
         }
         self.permissions = permissions;
-
         self.nlink = metadata.nlink();
 
         let uid = metadata.uid();
@@ -300,7 +337,7 @@ impl Entity {
 
         self.size = metadata.clone().len().to_string();
         self.get_modified_time(metadata);
-        
+
         if let Some(data) = major_minor(self.clone()) {
             self.major = Some(data.0);
             self.minor = Some(data.1);
@@ -394,10 +431,8 @@ fn get_permissions(permissions_bits: u32) -> String {
 }
 
 fn read_link(entity: Entity) -> Option<PathBuf> {
-    println!("read_link for [{:?}] of type: [{:?}]", entity.name, entity.file_type);
     let a = fs::read_link(entity.path);
     if entity.file_type != EntityType::SymLink {
-        println!("not a symlink no need to follow it");
         return None;
     }
 
@@ -407,9 +442,30 @@ fn read_link(entity: Entity) -> Option<PathBuf> {
         return None;
     }
 }
+
+fn read_dir(path: PathBuf) -> Result<Vec<PathBuf>, Error> {
+    let dir = match fs::read_dir(path) {
+        Ok(res) => res,
+        Err(err) => return Err(err),
+    };
+
+    // println!("try to read the file );
+
+    let mut entries = Vec::new();
+
+    for elem in dir {
+        match elem {
+            Ok(dir_entry) => {
+                entries.push(dir_entry.path());
+            }
+            Err(err) => println!("- entry err: {:?}", err),
+        };
+    }
+
+    Ok(entries)
+}
+
 fn major_minor(entity: Entity) -> Option<(u32, u32)> {
-
-
     if entity.file_type != EntityType::CharacterDevice
         || entity.file_type != EntityType::BlockDevice
     {
@@ -438,13 +494,32 @@ fn get_file_type(mode: u32) -> EntityType {
     }
 }
 
-fn path_exists(arg: &String) -> bool {
-    // let meta = fs::symlink_metadata(path)
-    let path = Path::new(arg);
-    path.exists()
+// fn path_exists(arg: &String) -> bool {
+//     // let meta = fs::symlink_metadata(path)
+//     let path = Path::new(arg);
+//     path.exists()
+// }
+
+fn get_parent(path: PathBuf) -> PathBuf {
+    match path.parent() {
+        Some(parent) => parent.to_path_buf(),
+        None => {
+            return path;
+        }
+    }
 }
 
-fn is_dir(path: String) -> bool {
-    let path = Path::new(&path);
-    path.is_dir()
+fn handle_ls_erros(err: Error, entry: String) {
+    match err.kind() {
+        ErrorKind::NotFound => {
+            eprintln!("ls: cannot access '{:?}': No such file or directory", entry)
+        }
+        ErrorKind::NotADirectory => {
+            eprintln!("ls: cannot access '{:?}': Not a directory", entry)
+        }
+        _ => eprintln!(
+            "ls: cannot access '{:?}': Unexpected error =>> {:?}",
+            entry, err
+        ),
+    };
 }
