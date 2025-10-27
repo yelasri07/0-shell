@@ -16,16 +16,9 @@ pub fn mv_handler(args: Vec<String>) {
             eprintln!("mv: cannot stat '{:?}': No such file or directory", src);
             return;
         }
-
-        if src.is_dir() {
-            if let Err(e) = fs::rename(src, destination) {
-                eprintln!("mv: {e}");
-            }
-        } else if src.is_file() {
-            if let Err(e) = fs::rename(src, destination) {
-                eprintln!("mv: {e}");
-                return;
-            }
+        if let Err(e) = fs::rename(src, destination) {
+            eprintln!("mv: {e}");
+            return;
         }
 
         return;
@@ -36,6 +29,10 @@ pub fn mv_handler(args: Vec<String>) {
 
     if destination.is_dir() {
         for opt in args[..args.len() - 1].iter() {
+            if destination == Path::new(".") {
+                eprintln!("mv: '{opt}' and './{opt}' are the same file");
+                continue;
+            }
             if opt == "." || opt == ".." {
                 eprintln!(
                     "mv: cannot move '{opt}' to {:?}: Device or resource busy",
@@ -49,14 +46,40 @@ pub fn mv_handler(args: Vec<String>) {
                 continue;
             }
             if src.is_file() {
-                let new_dest = destination.join(src.file_name().unwrap());
-                if let Err(e) = fs::rename(src, new_dest) {
-                    eprintln!("mv: {e}");
+                if let Some(file_name) = src.file_name() {
+                    let new_dest = destination.join(file_name);
+
+                    if let Err(e) = fs::rename(&src, new_dest) {
+                        eprintln!("mv: {e}");
+                        continue;
+                    }
+                } else {
+                    eprintln!(
+                        "mv: cannot join {:?} with {:?}",
+                        destination,
+                        src.file_name()
+                    );
                     continue;
                 }
             } else if src.is_dir() {
                 if let Err(e) = move_dir_recursivly(src, destination) {
                     eprintln!("mv: {e}");
+                    continue;
+                }
+            } else {
+                if let Some(file_name) = src.file_name() {
+                    let new_dest = destination.join(file_name);
+
+                    if let Err(e) = fs::rename(&src, new_dest) {
+                        eprintln!("mv: {e}");
+                        continue;
+                    }
+                } else {
+                    eprintln!(
+                        "mv: cannot join {:?} with {:?}",
+                        destination,
+                        src.file_name()
+                    );
                     continue;
                 }
             }
@@ -80,7 +103,8 @@ pub fn mv_handler(args: Vec<String>) {
             if src_path.file_name() == destination.file_name() {
                 eprintln!(
                     "mv: {:?} and {:?} are the same file",
-                     src_path.file_name().unwrap(),  destination.file_name().unwrap()
+                    src_path.file_name().unwrap(),
+                    destination.file_name().unwrap()
                 );
                 return;
             }

@@ -2,6 +2,7 @@ use crate::utils::direct_children;
 use std::{
     fs::{self, File},
     io::{self},
+    os::unix::fs::FileTypeExt,
     path::{Path, PathBuf},
 };
 #[derive(Debug, Clone)]
@@ -26,10 +27,13 @@ impl Cp {
                         return Err(err);
                     }
                 } else if meta.is_dir() {
-                    
                     let new_path = dest_path.join(src_path);
-            
+
                     if let Err(err) = fs::copy(&src_path, new_path) {
+                        return Err(err);
+                    }
+                } else {
+                    if let Err(err) = fs::copy(&src_path, dest_path) {
                         return Err(err);
                     }
                 }
@@ -90,10 +94,12 @@ pub fn cp_handler(args: Vec<String>) {
             );
             return;
         }
+        if src_path.is_dir(){
+            
+        }
         if let Err(err) = Cp::exec(src_path, dest_path) {
             eprintln!("cp: error copying file: {}", err);
         }
-
         return;
     } else if dest_meta.is_err() && cp.options.len() != 1 {
         eprintln!("cp: target '{}' is not a directory", cp.target);
@@ -102,7 +108,7 @@ pub fn cp_handler(args: Vec<String>) {
 
     let target = dest_meta.unwrap();
 
-    if target.is_file() {
+    if target.file_type().is_file() || target.file_type().is_fifo() {
         if cp.options.len() != 1 {
             eprintln!("cp: target '{}' is not a directory", cp.target);
             return;
@@ -124,8 +130,20 @@ pub fn cp_handler(args: Vec<String>) {
         }
     }
 
-    if target.is_dir() {
+    if target.file_type().is_dir() {
         for opt in cp.options.iter() {
+            if cp.target == "." {
+                eprintln!("cp: '{opt}' and './{opt}' are the same file");
+                continue;
+            }
+
+            if opt == "." || opt == ".." {
+                eprintln!(
+                    "cp: cannot copy a directory, '{opt}', into itself, {}",
+                    cp.target
+                );
+                continue;
+            }
             let src_path = Path::new(opt);
             let dest_path = Path::new(&cp.target);
             let new_src_dir = if src_path.is_dir() {
