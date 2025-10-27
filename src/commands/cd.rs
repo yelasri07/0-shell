@@ -33,38 +33,10 @@ pub fn cd_handler(args: Vec<String>, prev_path: PathBuf, current_path: &mut Path
     }
 
     let p_path = current_path.to_path_buf();
-    let mut c_path = get_current_dir();
+    let c_path = get_current_dir();
     if c_path.as_os_str().is_empty() {
         eprintln!("cd: error retrieving current directory: getcwd: cannot access parent directories: No such file or directory");
-        current_path.push("..");
-        c_path.push(current_path);
     }
 
     (p_path, c_path)
 }
-
-// fn get_logical_path(path: &str) -> PathBuf {
-//     let mut path_elements = path.split('/').collect::<Vec<&str>>();
-//     for i in 0..path_elements.len() {
-//         if path_elements[i] == ".." {
-//             let mut cp = i - 1;
-//             while cp > 0 {
-//                 if path_elements[cp] == ".." {
-//                     cp -= 1;
-//                     continue;
-//                 }
-//                 path_elements[cp] = "..";
-//                 break;
-//             }
-//         }
-//     }
-
-//     let mut new_path = PathBuf::from("/");
-//     for i in 0..path_elements.len() {
-//         if path_elements[i] != ".." {
-//             new_path = new_path.join(path_elements[i]);
-//         }
-//     }
-
-//     new_path
-// }
