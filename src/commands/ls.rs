@@ -1,12 +1,11 @@
-use chrono::{DateTime, Local};
-// use colored::Colorize;
+use chrono::{DateTime, Duration, Utc};
+use chrono_tz::Africa::Casablanca;
 use core::fmt;
 use std::fs::{self};
-use std::fs::{Metadata};
-use std::io::{ Error, ErrorKind};
+use std::fs::{Metadata, metadata};
+use std::io::{Error, ErrorKind};
 use std::os::unix::fs::*;
-use std::path::{PathBuf};
-use std::time::{Duration, SystemTime};
+use std::path::PathBuf;
 use users::{get_group_by_gid, get_user_by_uid};
 
 pub fn ls_handler(args: Vec<String>, current_path: PathBuf) {
@@ -91,6 +90,7 @@ impl LsConfig {
         }
         Ok(())
     }
+
     fn absolute_path(&self, path: String) -> PathBuf {
         let path = if !path.starts_with("/") {
             format!("{}/{}", self.current_path.display().to_string(), path)
@@ -123,7 +123,6 @@ impl LsConfig {
                     self.targets.push(target);
                 }
                 Err(err) => {
-                    // println!("error while parsing: {}", )
                     handle_ls_erros(err, elem);
                 }
             };
@@ -144,22 +143,17 @@ impl LsConfig {
     fn execute(&mut self) {
         for mut target in self.targets.clone() {
             let mut list = List::new(target.0.clone());
-            list.get_items(&mut target.1, self.flags.clone());
 
             if self.targets.len() > 1 {
                 println!("{}:", list.header);
             }
 
+            list.get_items(&mut target.1, self.flags.clone());
             if self.flags.long {
                 println!("total {}", list.total);
             }
 
             for (_, file) in list.items.iter_mut().enumerate() {
-
-                if !self.flags.all && file.name.starts_with(".") {
-                    continue;
-                }
-
                 file.is_classified = self.flags.classify;
 
                 if self.flags.long {
@@ -177,7 +171,6 @@ struct List {
     header: String,
     total: u64,
     items: Vec<Entity>,
-    // has_minor_major: bool,
 }
 
 impl List {
@@ -204,40 +197,30 @@ impl List {
             self.items.push(target.clone());
             return;
         } else {
-            let files = match read_dir(target.path.clone()) {
+            let files = match read_dir(target.path.clone(), flags.all) {
                 Ok(res) => res,
-                Err(error) => {
-                    println!("==> {:?}", error);
+                Err(err) => {
+                    handle_ls_erros(err, target.name.clone());
                     return;
                 }
             };
 
-            if flags.all {
-                target.name = ".".to_string();
-                self.items.push(target.clone());
-                self.total += target.blocks;
-                match Entity::new(target.parent.clone()) {
-                    Ok(mut res) => {
-                        res.name = "..".to_string();
-                        self.items.push(res);
-                        self.total += target.blocks;
-                    }
-                    _ => {}
-                };
-            }
-
             for file in files {
                 let file_name = file.file_name().unwrap_or_default();
                 match Entity::new(file.clone()) {
-                    Ok(entity) => {
-                        // if flags
-                        self.total += if (entity.is_hidden && flags.all) || !entity.is_hidden {
-                            entity.blocks
-                        } else {
-                            0
-                        };
+                    Ok(mut entity) => {
+                        if file == target.path {
+                            entity.name = ".".to_string();
+                        }
+
+                        if file == target.parent {
+                            entity.name = "..".to_string();
+                        }
+
+                        self.total += entity.blocks;
                         self.items.push(entity);
                     }
+
                     Err(err) => {
                         handle_ls_erros(err, file_name.display().to_string());
                     }
@@ -246,16 +229,19 @@ impl List {
         }
 
         self.items.sort_by(|a, b| {
-            let file_a = a.name.strip_prefix(".").unwrap_or(&a.name);
-            let file_b = b.name.strip_prefix(".").unwrap_or(&b.name);
+            let file_a = a
+                .name
+                .strip_prefix(".")
+                .unwrap_or(&a.name)
+                .to_ascii_lowercase();
+            let file_b = b
+                .name
+                .strip_prefix(".")
+                .unwrap_or(&b.name)
+                .to_ascii_lowercase();
             file_a.cmp(&file_b)
         });
 
-        if flags.all {
-            // let current =
-        }
-
-        // let current
     }
 }
 
@@ -288,7 +274,6 @@ struct Entity {
     time: String,
     name: String,
     blocks: u64,
-    is_hidden: bool,
     link_target: Option<PathBuf>,
     is_classified: bool,
     is_long: bool,
@@ -297,35 +282,30 @@ struct Entity {
 impl Entity {
     fn new(path: PathBuf) -> Result<Self, Error> {
         let metadata = fs::symlink_metadata(path.clone())?;
-
         let mut new = Self {
             parent: get_parent(path.clone()),
             path: path.clone(),
             name: path
                 .file_name()
                 .unwrap_or(Default::default())
-                .to_string_lossy()
+                .display()
                 .to_string(),
             blocks: metadata.blocks() / 2,
             ..Default::default()
         };
-        new.is_hidden = new.name.starts_with(".");
         new.file_type = get_file_type(metadata.permissions().mode());
         new.link_target = read_link(new.clone());
         Ok(new)
     }
 
     fn long_list(&mut self) {
-        let metadata = fs::symlink_metadata(self.path.clone()).expect("");
         self.is_long = true;
+        let metadata = fs::symlink_metadata(self.path.clone()).expect("");
 
-        let permissions = get_permissions(metadata.permissions().mode() & 0o777);
-        if permissions.contains("x") && self.file_type == EntityType::File {
-            self.file_type = EntityType::Executable;
-        }
+        let mode = metadata.permissions().mode();
+        let permissions = get_permissions(mode);
         self.permissions = permissions;
         self.nlink = metadata.nlink();
-
         let uid = metadata.uid();
         let gid = metadata.gid();
         self.uid = get_user_by_uid(uid)
@@ -336,7 +316,7 @@ impl Entity {
             .unwrap_or(gid.to_string());
 
         self.size = metadata.clone().len().to_string();
-        self.get_modified_time(metadata);
+        self.time = get_modified_time(metadata);
 
         if let Some(data) = major_minor(self.clone()) {
             self.major = Some(data.0);
@@ -346,39 +326,23 @@ impl Entity {
             self.minor = None;
         }
     }
-
-    fn get_modified_time(&mut self, metadata: Metadata) {
-        let modified_time = metadata.modified().unwrap();
-        let datetime: DateTime<Local> = modified_time.into();
-
-        let now = SystemTime::now()
-            .duration_since(modified_time)
-            .unwrap_or_default();
-        let six_months = Duration::from_secs(60 * 60 * 24 * 30 * 6);
-
-        self.time = if now > six_months {
-            datetime.format("%b %e %Y").to_string()
-        } else {
-            datetime.format("%b %e %H:%M").to_string()
-        };
-    }
 }
 
 impl fmt::Display for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // 1. Determine base name and suffix
         let mut name = self.name.to_owned();
-        let (symbol, mut sufix) = match self.file_type {
-            EntityType::File => ("-", ""),
-            EntityType::Dir => ("d", "/"),
-            EntityType::SymLink => ("l", "@"),
-            EntityType::CharacterDevice => ("c", ""),
-            EntityType::BlockDevice => ("b", ""),
-            EntityType::Fifo => ("p", "|"),
-            EntityType::Socket => ("s", "="),
-            EntityType::Executable => ("-", "*"),
-            EntityType::None => ("", ""),
-        };
+        let (symbol, mut sufix) = get_file_type_symbols(self.file_type.clone());
+
+        if self.file_type == EntityType::SymLink {
+            if let Some(path) = self.link_target.clone() {
+                match metadata(path) {
+                    Ok(metada) => {
+                        sufix = get_file_type_symbols(get_file_type(metada.mode())).1;
+                    }
+                    Err(_) => sufix = "",
+                };
+            }
+        }
 
         if !self.is_classified {
             sufix = "";
@@ -397,37 +361,76 @@ impl fmt::Display for Entity {
                 mode, self.nlink, self.uid, self.gid, self.size, self.time, name, sufix
             )
         } else {
-            // Short listing: only name and suffix
             writeln!(f, "{}{}", self.name, sufix)
         }
     }
 }
 
 // utitlies :
+fn get_modified_time(metadata: Metadata) -> String {
+    let dt = DateTime::<Utc>::from_timestamp(metadata.clone().mtime(), 0);
+    let datetime = dt.unwrap().with_timezone(&Casablanca);
+    let current_date_time = Utc::now().with_timezone(&Casablanca);
 
-fn get_permissions(permissions_bits: u32) -> String {
-    let mut res = Vec::new();
-    let masks: [(u32, char); 9] = [
-        (0o400, 'r'),
-        (0o200, 'w'),
-        (0o100, 'x'),
-        (0o040, 'r'),
-        (0o020, 'w'),
-        (0o010, 'x'),
-        (0o004, 'r'),
-        (0o002, 'w'),
-        (0o001, 'x'),
-    ];
+    let six_months_ago = current_date_time - Duration::days(183);
 
-    for &(mask, permission_char) in &masks {
-        if permissions_bits & mask != 0 {
-            res.push(permission_char);
-        } else {
-            res.push('-');
-        }
+    if datetime > six_months_ago && datetime < current_date_time {
+        return datetime.format("%b %e %H:%M").to_string();
     }
 
-    res.iter().collect::<String>()
+    datetime.format("%b %e  %Y").to_string()
+}
+
+fn get_file_type_symbols(file_type: EntityType) -> (&'static str, &'static str) {
+    match file_type {
+        EntityType::File => ("-", ""),
+        EntityType::Dir => ("d", "/"),
+        EntityType::SymLink => ("l", "@"),
+        EntityType::CharacterDevice => ("c", ""),
+        EntityType::BlockDevice => ("b", ""),
+        EntityType::Fifo => ("p", "|"),
+        EntityType::Socket => ("s", "="),
+        EntityType::Executable => ("-", "*"),
+        EntityType::None => ("", ""),
+    }
+}
+
+fn get_permissions(mode: u32) -> String {
+    let mut permissions = String::new();
+
+    let owner = (mode >> 6) & 0o7;
+    let group = (mode >> 3) & 0o7;
+    let other = mode & 0o7;
+
+    let setuid = mode & 0o4000 != 0;
+    let setgid = mode & 0o2000 != 0;
+    let sticky_bit = mode & 0o1000 != 0;
+
+    permissions.push(if owner & 0o4 != 0 { 'r' } else { '-' });
+    permissions.push(if owner & 0o2 != 0 { 'w' } else { '-' });
+    permissions.push(if setuid {
+        if owner & 0o1 != 0 { 's' } else { 'S' }
+    } else {
+        if owner & 0o1 != 0 { 'x' } else { '-' }
+    });
+
+    permissions.push(if group & 0o4 != 0 { 'r' } else { '-' });
+    permissions.push(if group & 0o2 != 0 { 'w' } else { '-' });
+    permissions.push(if setgid {
+        if group & 0o1 != 0 { 's' } else { 'S' }
+    } else {
+        if group & 0o1 != 0 { 'x' } else { '-' }
+    });
+
+    permissions.push(if other & 0o4 != 0 { 'r' } else { '-' });
+    permissions.push(if other & 0o2 != 0 { 'w' } else { '-' });
+    permissions.push(if sticky_bit {
+        if other & 0o1 != 0 { 't' } else { 'T' }
+    } else {
+        if other & 0o1 != 0 { 'x' } else { '-' }
+    });
+
+    permissions
 }
 
 fn read_link(entity: Entity) -> Option<PathBuf> {
@@ -443,19 +446,25 @@ fn read_link(entity: Entity) -> Option<PathBuf> {
     }
 }
 
-fn read_dir(path: PathBuf) -> Result<Vec<PathBuf>, Error> {
-    let dir = match fs::read_dir(path) {
+fn read_dir(path: PathBuf, all: bool) -> Result<Vec<PathBuf>, Error> {
+    let dir = match fs::read_dir(&path) {
         Ok(res) => res,
         Err(err) => return Err(err),
     };
 
-    // println!("try to read the file );
+    let mut entries: Vec<PathBuf> = Vec::new();
 
-    let mut entries = Vec::new();
+    if all {
+        entries.push(path.clone());
+        entries.push(get_parent(path.clone()));
+    }
 
     for elem in dir {
         match elem {
             Ok(dir_entry) => {
+                if !all && dir_entry.file_name().display().to_string().starts_with(".") {
+                    continue;
+                }
                 entries.push(dir_entry.path());
             }
             Err(err) => println!("- entry err: {:?}", err),
@@ -482,7 +491,7 @@ fn major_minor(entity: Entity) -> Option<(u32, u32)> {
 }
 
 fn get_file_type(mode: u32) -> EntityType {
-    match mode & 0o170000 {
+    let mut file_type = match mode & 0o170000 {
         0o100000 => EntityType::File,
         0o040000 => EntityType::Dir,
         0o120000 => EntityType::SymLink,
@@ -491,14 +500,14 @@ fn get_file_type(mode: u32) -> EntityType {
         0o010000 => EntityType::Fifo,
         0o140000 => EntityType::Socket,
         _ => EntityType::None,
-    }
-}
+    };
 
-// fn path_exists(arg: &String) -> bool {
-//     // let meta = fs::symlink_metadata(path)
-//     let path = Path::new(arg);
-//     path.exists()
-// }
+    let is_executable = mode & 0o111 != 0;
+    if file_type == EntityType::File && is_executable {
+        file_type = EntityType::Executable
+    };
+    file_type
+}
 
 fn get_parent(path: PathBuf) -> PathBuf {
     match path.parent() {
@@ -512,13 +521,16 @@ fn get_parent(path: PathBuf) -> PathBuf {
 fn handle_ls_erros(err: Error, entry: String) {
     match err.kind() {
         ErrorKind::NotFound => {
-            eprintln!("ls: cannot access '{:?}': No such file or directory", entry)
+            eprintln!("ls: cannot access {:?}: No such file or directory", entry)
         }
         ErrorKind::NotADirectory => {
-            eprintln!("ls: cannot access '{:?}': Not a directory", entry)
+            eprintln!("ls: cannot access {:?}: Not a directory", entry)
+        }
+        ErrorKind::PermissionDenied => {
+            eprintln!("ls: cannot access {:?}: Permission denied", entry)
         }
         _ => eprintln!(
-            "ls: cannot access '{:?}': Unexpected error =>> {:?}",
+            "ls: cannot access {:?}: Unexpected error =>> {:?}",
             entry, err
         ),
     };
