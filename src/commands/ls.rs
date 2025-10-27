@@ -316,14 +316,21 @@ impl Entity {
     }
 
     fn long_list(&mut self) {
-        let metadata = fs::symlink_metadata(self.path.clone()).expect("");
         self.is_long = true;
-
-        let permissions = get_permissions(metadata.permissions().mode() & 0o777);
+        let metadata = fs::symlink_metadata(self.path.clone()).expect("");
+        let mode = metadata.permissions().mode();
+        // handle permissions
+        let permissions = get_permissions(mode);
         if permissions.contains("x") && self.file_type == EntityType::File {
             self.file_type = EntityType::Executable;
         }
         self.permissions = permissions;
+
+        let is_executable = mode & 0o111 != 0;
+        if self.file_type == EntityType::File {
+            
+        }
+
         self.nlink = metadata.nlink();
 
         let uid = metadata.uid();
@@ -405,29 +412,44 @@ impl fmt::Display for Entity {
 
 // utitlies :
 
-fn get_permissions(permissions_bits: u32) -> String {
-    let mut res = Vec::new();
-    let masks: [(u32, char); 9] = [
-        (0o400, 'r'),
-        (0o200, 'w'),
-        (0o100, 'x'),
-        (0o040, 'r'),
-        (0o020, 'w'),
-        (0o010, 'x'),
-        (0o004, 'r'),
-        (0o002, 'w'),
-        (0o001, 'x'),
-    ];
+fn get_permissions(mode: u32) -> String {
+    let mut permissions = String::new();
 
-    for &(mask, permission_char) in &masks {
-        if permissions_bits & mask != 0 {
-            res.push(permission_char);
-        } else {
-            res.push('-');
-        }
-    }
+    let owner = (mode >> 6) & 0o7;
+    let group = (mode >> 3) & 0o7;
+    let other = mode & 0o7;
 
-    res.iter().collect::<String>()
+
+    let setuid = mode & 0o4000 != 0;
+    let setgid = mode & 0o2000 != 0;
+    let sticky_bit = mode & 0o1000 != 0;
+
+
+    permissions.push(if owner & 0o4 != 0 { 'r' } else { '-' });
+    permissions.push(if owner & 0o2 != 0 { 'w' } else { '-' });
+    permissions.push(if setuid {
+        if owner & 0o1 != 0 { 's' } else { 'S' }
+    } else {
+        if owner & 0o1 != 0 { 'x' } else { '-' }
+    });
+
+    permissions.push(if group & 0o4 != 0 { 'r' } else { '-' });
+    permissions.push(if group & 0o2 != 0 { 'w' } else { '-' });
+    permissions.push(if setgid {
+        if group & 0o1 != 0 { 's' } else { 'S' }
+    } else {
+        if group & 0o1 != 0 { 'x' } else { '-' }
+    });
+
+    permissions.push(if other & 0o4 != 0 { 'r' } else { '-' });
+    permissions.push(if other & 0o2 != 0 { 'w' } else { '-' });
+    permissions.push(if sticky_bit {
+        if other & 0o1 != 0 { 't' } else { 'T' }
+    } else {
+        if other & 0o1 != 0 { 'x' } else { '-' }
+    });
+
+    permissions
 }
 
 fn read_link(entity: Entity) -> Option<PathBuf> {
