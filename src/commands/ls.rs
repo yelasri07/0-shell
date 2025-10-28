@@ -1,7 +1,6 @@
 use chrono::{DateTime, Duration, Utc};
 use chrono_tz::Africa::Casablanca;
 use core::fmt;
-use libc::raise;
 use std::fs::{self};
 use std::fs::{Metadata, metadata};
 use std::io::{Error, ErrorKind};
@@ -142,10 +141,14 @@ impl LsConfig {
     }
 
     fn execute(&mut self) {
-        for mut target in self.targets.clone() {
+        // let targets_len = self.targets.len();
+        for (index, mut target) in self.targets.clone().into_iter().enumerate() {
             let mut list = List::new(target.0.clone());
+            if index > 0 && target.1.file_type == EntityType::Dir {
+                println!("")
+            }
 
-            if self.targets.len() > 1 {
+            if self.targets.len() > 1 && target.1.file_type == EntityType::Dir {
                 println!("{}:", list.header);
             }
 
@@ -163,9 +166,6 @@ impl LsConfig {
 
                 print!("{}", file);
             }
-
-            
-
         }
     }
 }
@@ -298,10 +298,10 @@ impl Entity {
             parent: get_parent(path.clone()),
             path: path.clone(),
             name: path
-            .file_name()
-            .unwrap_or(Default::default())
-            .display()
-            .to_string(),
+                .file_name()
+                .unwrap_or(Default::default())
+                .display()
+                .to_string(),
             blocks: metadata.blocks() / 2,
             ..Default::default()
         };
@@ -343,6 +343,12 @@ impl Entity {
 impl fmt::Display for Entity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut name = self.name.to_owned();
+        let size = match self.file_type {
+            EntityType::BlockDevice | EntityType::CharacterDevice => {
+                format!("{}, {}", self.minor.unwrap_or_default(), self.major.unwrap_or_default())
+            },
+            _=> self.size.clone(),
+        };
         let (symbol, mut sufix) = get_file_type_symbols(self.file_type.clone());
 
         if self.file_type == EntityType::SymLink {
@@ -350,6 +356,7 @@ impl fmt::Display for Entity {
                 match metadata(path) {
                     Ok(metada) => {
                         sufix = if self.is_long {
+                            println!("aaaaaa");
                             get_file_type_symbols(get_file_type(metada.mode())).1
                         } else {
                             sufix
@@ -367,14 +374,14 @@ impl fmt::Display for Entity {
         if let Some(link_target) = self.link_target.clone() {
             name = format!("{} -> {}", self.name, link_target.display());
         }
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                
+
         if self.is_long {
             let mode = format!("{}{}", symbol, self.permissions);
 
             writeln!(
                 f,
-                "{:10} {:>4} {:<8} {:<8} {:>8} {} {}{}",
-                mode, self.nlink, self.uid, self.gid, self.size, self.time, name, sufix
+                "{} {} {} {} {} {} {}{}",
+                mode, self.nlink, self.uid, self.gid, size, self.time, name, sufix
             )
         } else {
             writeln!(f, "{}{}", self.name, sufix)
@@ -494,7 +501,7 @@ fn read_dir(path: PathBuf, all: bool) -> Result<Vec<PathBuf>, Error> {
 
 fn major_minor(entity: Entity) -> Option<(u32, u32)> {
     if entity.file_type != EntityType::CharacterDevice
-        || entity.file_type != EntityType::BlockDevice
+        && entity.file_type != EntityType::BlockDevice
     {
         return None;
     }
@@ -550,7 +557,3 @@ fn handle_ls_erros(err: Error, entry: String) {
         }
     }
 }
-
-
-// symlink + -laF => file
-// symlink/ + -l => file
