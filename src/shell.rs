@@ -1,4 +1,4 @@
-use std::{path::PathBuf, process::Command};
+use std::path::PathBuf;
 
 use crate::{commands::*, utils::read_line};
 
@@ -157,7 +157,7 @@ impl Shell {
                 let (prev_path, current_path) = cd_handler(
                     args,
                     self.prev_path.to_path_buf(),
-                    &mut self.current_path.to_path_buf(),
+                    self.current_path.to_path_buf(),
                     self.home.clone(),
                 );
                 self.prev_path = prev_path;
@@ -172,15 +172,7 @@ impl Shell {
             "pwd" => pwd_handler(&self.current_path),
             "clear" => clear_handler(),
             "rm" => rm_handler(args),
-            _ => {
-                let output = Command::new(cmd).args(args).spawn();
-                match output {
-                    Ok(_) => {}
-                    Err(_) => {
-                        eprintln!("Command {} not found", cmd);
-                    }
-                }
-            }
+            _ => eprintln!("Command {} not found", cmd),
         }
     }
 }
