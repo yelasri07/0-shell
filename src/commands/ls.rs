@@ -2,7 +2,7 @@ use chrono::{DateTime, Duration, Utc};
 use chrono_tz::Africa::Casablanca;
 use core::fmt;
 use std::fs::{self};
-use std::fs::{metadata, Metadata};
+use std::fs::{Metadata, metadata};
 use std::io::{Error, ErrorKind};
 use std::os::unix::fs::*;
 use std::path::PathBuf;
@@ -105,9 +105,7 @@ impl LsConfig {
         if args.is_empty() {
             let current = PathBuf::from(format!("{}/.", self.current_path.display().to_string()));
             let current_dir = match Entity::new(current) {
-                Ok(entity) => {
-                    entity
-                }
+                Ok(entity) => entity,
                 Err(err) => {
                     handle_ls_erros(err, ".".to_string());
                     return;
@@ -317,7 +315,7 @@ impl Entity {
         let metadata = fs::symlink_metadata(self.path.clone()).expect("");
 
         let mode = metadata.permissions().mode();
-        let permissions = get_permissions(mode);
+        let permissions = get_permissions(mode, self.path.clone());
         self.permissions = permissions;
         self.nlink = metadata.nlink();
         let uid = metadata.uid();
@@ -423,7 +421,7 @@ fn get_file_type_symbols(file_type: EntityType) -> (&'static str, &'static str) 
     }
 }
 
-fn get_permissions(mode: u32) -> String {
+fn get_permissions(mode: u32, path: PathBuf) -> String {
     let mut permissions = String::new();
 
     let owner = (mode >> 6) & 0o7;
@@ -437,50 +435,38 @@ fn get_permissions(mode: u32) -> String {
     permissions.push(if owner & 0o4 != 0 { 'r' } else { '-' });
     permissions.push(if owner & 0o2 != 0 { 'w' } else { '-' });
     permissions.push(if setuid {
-        if owner & 0o1 != 0 {
-            's'
-        } else {
-            'S'
-        }
+        if owner & 0o1 != 0 { 's' } else { 'S' }
     } else {
-        if owner & 0o1 != 0 {
-            'x'
-        } else {
-            '-'
-        }
+        if owner & 0o1 != 0 { 'x' } else { '-' }
     });
 
     permissions.push(if group & 0o4 != 0 { 'r' } else { '-' });
     permissions.push(if group & 0o2 != 0 { 'w' } else { '-' });
     permissions.push(if setgid {
-        if group & 0o1 != 0 {
-            's'
-        } else {
-            'S'
-        }
+        if group & 0o1 != 0 { 's' } else { 'S' }
     } else {
-        if group & 0o1 != 0 {
-            'x'
-        } else {
-            '-'
-        }
+        if group & 0o1 != 0 { 'x' } else { '-' }
     });
 
     permissions.push(if other & 0o4 != 0 { 'r' } else { '-' });
     permissions.push(if other & 0o2 != 0 { 'w' } else { '-' });
     permissions.push(if sticky_bit {
-        if other & 0o1 != 0 {
-            't'
-        } else {
-            'T'
-        }
+        if other & 0o1 != 0 { 't' } else { 'T' }
     } else {
-        if other & 0o1 != 0 {
-            'x'
-        } else {
-            '-'
-        }
+        if other & 0o1 != 0 { 'x' } else { '-' }
     });
+
+    let has_acl = xattr::list(path)
+        .ok()
+        .map(|attrs| {
+            attrs
+                .into_iter()
+                .any(|name| name.to_str() == Some("system.posix_acl_access"))
+        })
+        .unwrap_or(false);
+    if has_acl {
+        permissions.push('+');
+    }
 
     permissions
 }
