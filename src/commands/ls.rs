@@ -103,10 +103,11 @@ impl LsConfig {
 
     fn parse_targets(&mut self, args: Vec<String>) {
         if args.is_empty() {
-            let current_dir = match Entity::new(self.current_path.clone()) {
+            let current = PathBuf::from(format!("{}/.", self.current_path.display().to_string()));
+            let current_dir = match Entity::new(current) {
                 Ok(entity) => entity,
                 Err(err) => {
-                    eprintln!("Err listing current directory => {:?}", err.kind());
+                    handle_ls_erros(err, ".".to_string());
                     return;
                 }
             };
@@ -205,12 +206,11 @@ impl List {
                 files = res;
             }
             Err(err) => {
-                if err.kind() == ErrorKind::NotADirectory {
+                if err.kind() == ErrorKind::NotADirectory && is_symlink {
                     is_dir = false;
-                } else if is_symlink {
-                    handle_ls_erros(err, target.name.clone());
-                    return;
                 }
+                handle_ls_erros(err, target.name.clone());
+                return;
             }
         };
 
@@ -315,7 +315,7 @@ impl Entity {
         let metadata = fs::symlink_metadata(self.path.clone()).expect("");
 
         let mode = metadata.permissions().mode();
-        let permissions = get_permissions(mode);
+        let permissions = get_permissions(mode, self.path.clone());
         self.permissions = permissions;
         self.nlink = metadata.nlink();
         let uid = metadata.uid();
@@ -345,9 +345,13 @@ impl fmt::Display for Entity {
         let mut name = self.name.to_owned();
         let size = match self.file_type {
             EntityType::BlockDevice | EntityType::CharacterDevice => {
-                format!("{}, {}", self.minor.unwrap_or_default(), self.major.unwrap_or_default())
-            },
-            _=> self.size.clone(),
+                format!(
+                    "{}, {}",
+                    self.minor.unwrap_or_default(),
+                    self.major.unwrap_or_default()
+                )
+            }
+            _ => self.size.clone(),
         };
         let (symbol, mut sufix) = get_file_type_symbols(self.file_type.clone());
 
@@ -356,7 +360,6 @@ impl fmt::Display for Entity {
                 match metadata(path) {
                     Ok(metada) => {
                         sufix = if self.is_long {
-                            println!("aaaaaa");
                             get_file_type_symbols(get_file_type(metada.mode())).1
                         } else {
                             sufix
@@ -418,7 +421,7 @@ fn get_file_type_symbols(file_type: EntityType) -> (&'static str, &'static str) 
     }
 }
 
-fn get_permissions(mode: u32) -> String {
+fn get_permissions(mode: u32, path: PathBuf) -> String {
     let mut permissions = String::new();
 
     let owner = (mode >> 6) & 0o7;
@@ -452,6 +455,18 @@ fn get_permissions(mode: u32) -> String {
     } else {
         if other & 0o1 != 0 { 'x' } else { '-' }
     });
+
+    let has_acl = xattr::list(path)
+        .ok()
+        .map(|attrs| {
+            attrs
+                .into_iter()
+                .any(|name| name.to_str() == Some("system.posix_acl_access"))
+        })
+        .unwrap_or(false);
+    if has_acl {
+        permissions.push('+');
+    }
 
     permissions
 }
@@ -492,7 +507,7 @@ fn read_dir(path: PathBuf, all: bool) -> Result<Vec<PathBuf>, Error> {
                 }
                 entries.push(dir_entry.path());
             }
-            Err(err) => println!("- entry err: {:?}", err),
+            Err(_) => {}
         };
     }
 
