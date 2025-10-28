@@ -2,7 +2,7 @@ use chrono::{DateTime, Duration, Utc};
 use chrono_tz::Africa::Casablanca;
 use core::fmt;
 use std::fs::{self};
-use std::fs::{Metadata, metadata};
+use std::fs::{metadata, Metadata};
 use std::io::{Error, ErrorKind};
 use std::os::unix::fs::*;
 use std::path::PathBuf;
@@ -103,10 +103,13 @@ impl LsConfig {
 
     fn parse_targets(&mut self, args: Vec<String>) {
         if args.is_empty() {
-            let current_dir = match Entity::new(self.current_path.clone()) {
-                Ok(entity) => entity,
+            let current = PathBuf::from(format!("{}/.", self.current_path.display().to_string()));
+            let current_dir = match Entity::new(current) {
+                Ok(entity) => {
+                    entity
+                }
                 Err(err) => {
-                    eprintln!("Err listing current directory => {:?}", err.kind());
+                    handle_ls_erros(err, ".".to_string());
                     return;
                 }
             };
@@ -205,12 +208,11 @@ impl List {
                 files = res;
             }
             Err(err) => {
-                if err.kind() == ErrorKind::NotADirectory {
+                if err.kind() == ErrorKind::NotADirectory && is_symlink {
                     is_dir = false;
-                } else if is_symlink {
-                    handle_ls_erros(err, target.name.clone());
-                    return;
                 }
+                handle_ls_erros(err, target.name.clone());
+                return;
             }
         };
 
@@ -345,9 +347,13 @@ impl fmt::Display for Entity {
         let mut name = self.name.to_owned();
         let size = match self.file_type {
             EntityType::BlockDevice | EntityType::CharacterDevice => {
-                format!("{}, {}", self.minor.unwrap_or_default(), self.major.unwrap_or_default())
-            },
-            _=> self.size.clone(),
+                format!(
+                    "{}, {}",
+                    self.minor.unwrap_or_default(),
+                    self.major.unwrap_or_default()
+                )
+            }
+            _ => self.size.clone(),
         };
         let (symbol, mut sufix) = get_file_type_symbols(self.file_type.clone());
 
@@ -356,7 +362,6 @@ impl fmt::Display for Entity {
                 match metadata(path) {
                     Ok(metada) => {
                         sufix = if self.is_long {
-                            println!("aaaaaa");
                             get_file_type_symbols(get_file_type(metada.mode())).1
                         } else {
                             sufix
@@ -432,25 +437,49 @@ fn get_permissions(mode: u32) -> String {
     permissions.push(if owner & 0o4 != 0 { 'r' } else { '-' });
     permissions.push(if owner & 0o2 != 0 { 'w' } else { '-' });
     permissions.push(if setuid {
-        if owner & 0o1 != 0 { 's' } else { 'S' }
+        if owner & 0o1 != 0 {
+            's'
+        } else {
+            'S'
+        }
     } else {
-        if owner & 0o1 != 0 { 'x' } else { '-' }
+        if owner & 0o1 != 0 {
+            'x'
+        } else {
+            '-'
+        }
     });
 
     permissions.push(if group & 0o4 != 0 { 'r' } else { '-' });
     permissions.push(if group & 0o2 != 0 { 'w' } else { '-' });
     permissions.push(if setgid {
-        if group & 0o1 != 0 { 's' } else { 'S' }
+        if group & 0o1 != 0 {
+            's'
+        } else {
+            'S'
+        }
     } else {
-        if group & 0o1 != 0 { 'x' } else { '-' }
+        if group & 0o1 != 0 {
+            'x'
+        } else {
+            '-'
+        }
     });
 
     permissions.push(if other & 0o4 != 0 { 'r' } else { '-' });
     permissions.push(if other & 0o2 != 0 { 'w' } else { '-' });
     permissions.push(if sticky_bit {
-        if other & 0o1 != 0 { 't' } else { 'T' }
+        if other & 0o1 != 0 {
+            't'
+        } else {
+            'T'
+        }
     } else {
-        if other & 0o1 != 0 { 'x' } else { '-' }
+        if other & 0o1 != 0 {
+            'x'
+        } else {
+            '-'
+        }
     });
 
     permissions
@@ -492,7 +521,7 @@ fn read_dir(path: PathBuf, all: bool) -> Result<Vec<PathBuf>, Error> {
                 }
                 entries.push(dir_entry.path());
             }
-            Err(err) => println!("- entry err: {:?}", err),
+            Err(_) => {}
         };
     }
 
