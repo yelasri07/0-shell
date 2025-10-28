@@ -1,6 +1,7 @@
 use chrono::{DateTime, Duration, Utc};
 use chrono_tz::Africa::Casablanca;
 use core::fmt;
+use libc::raise;
 use std::fs::{self};
 use std::fs::{Metadata, metadata};
 use std::io::{Error, ErrorKind};
@@ -184,48 +185,63 @@ impl List {
     }
 
     fn get_items(&mut self, target: &mut Entity, flags: Flags) {
+        let end_with_slash = target.path.display().to_string().ends_with("/");
+        let is_symlink = target.file_type == EntityType::SymLink;
         let mut is_dir = false;
+        let mut files: Vec<PathBuf> = Vec::new();
 
-        match target.file_type {
-            EntityType::Dir => {
-                is_dir = true;
+        match read_dir(target.path.clone(), flags.all) {
+            Ok(res) => {
+                if is_symlink && !flags.all && !flags.classify && !flags.long {
+                    if flags.classify {
+                        is_dir = false;
+                    }
+                    if end_with_slash  {
+                        is_dir = true;
+                    }
+                    if !end_with_slash && flags.long {
+                        is_dir = false;
+                    }
+                } else {
+                    is_dir = true;
+                }
+                files = res;
             }
-            _ => {}
-        };
-
-        if !is_dir && false {
-            self.items.push(target.clone());
-            return;
-        } else {
-            let files = match read_dir(target.path.clone(), flags.all) {
-                Ok(res) => res,
-                Err(err) => {
+            Err(err) => {
+                if err.kind() == ErrorKind::NotADirectory {
+                    is_dir = false;
+                } else if is_symlink {
                     handle_ls_erros(err, target.name.clone());
                     return;
                 }
-            };
-
-            for file in files {
-                let file_name = file.file_name().unwrap_or_default();
-                match Entity::new(file.clone()) {
-                    Ok(mut entity) => {
-                        if file == target.path {
-                            entity.name = ".".to_string();
-                        }
-
-                        if file == target.parent {
-                            entity.name = "..".to_string();
-                        }
-
-                        self.total += entity.blocks;
-                        self.items.push(entity);
-                    }
-
-                    Err(err) => {
-                        handle_ls_erros(err, file_name.display().to_string());
-                    }
-                };
             }
+        };
+
+        if !is_dir {
+            self.items.push(target.clone());
+            return;
+        }
+
+        for file in files {
+            let file_name = file.file_name().unwrap_or_default();
+            match Entity::new(file.clone()) {
+                Ok(mut entity) => {
+                    if file == target.path {
+                        entity.name = ".".to_string();
+                    }
+
+                    if file == target.parent {
+                        entity.name = "..".to_string();
+                    }
+
+                    self.total += entity.blocks;
+                    self.items.push(entity);
+                }
+
+                Err(err) => {
+                    handle_ls_erros(err, file_name.display().to_string());
+                }
+            };
         }
 
         self.items.sort_by(|a, b| {
@@ -241,7 +257,6 @@ impl List {
                 .to_ascii_lowercase();
             file_a.cmp(&file_b)
         });
-
     }
 }
 
@@ -449,7 +464,9 @@ fn read_link(entity: Entity) -> Option<PathBuf> {
 fn read_dir(path: PathBuf, all: bool) -> Result<Vec<PathBuf>, Error> {
     let dir = match fs::read_dir(&path) {
         Ok(res) => res,
-        Err(err) => return Err(err),
+        Err(err) => {
+            return Err(err);
+        }
     };
 
     let mut entries: Vec<PathBuf> = Vec::new();
@@ -535,3 +552,7 @@ fn handle_ls_erros(err: Error, entry: String) {
         ),
     };
 }
+
+
+// symlink + -laF => file
+// symlink/ + -l => file
