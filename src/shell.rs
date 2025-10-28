@@ -109,7 +109,9 @@ impl Shell {
         if self.is_backslash {
             self.is_backslash = false;
             let (input, _) = read_line(">", &self.home);
-            let _ = self.parse_input(input.as_str());
+            if let Err(e) = self.parse_input(input.as_str()) {
+                return Err(e);
+            }
         }
 
         if !self.arg.is_empty() && !self.is_quotes {
@@ -131,7 +133,9 @@ impl Shell {
                 ));
             }
             self.arg.push('\n');
-            let _ = self.parse_input(input.as_str());
+            if let Err(e) = self.parse_input(input.as_str()) {
+                return Err(e); 
+            }
         }
 
         Ok(())
