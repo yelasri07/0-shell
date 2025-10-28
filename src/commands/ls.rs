@@ -1,6 +1,7 @@
 use chrono::{DateTime, Duration, Utc};
 use chrono_tz::Africa::Casablanca;
 use core::fmt;
+use libc::raise;
 use std::fs::{self};
 use std::fs::{Metadata, metadata};
 use std::io::{Error, ErrorKind};
@@ -549,3 +550,7 @@ fn handle_ls_erros(err: Error, entry: String) {
         }
     }
 }
+
+
+// symlink + -laF => file
+// symlink/ + -l => file
