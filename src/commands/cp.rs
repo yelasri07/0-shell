@@ -27,8 +27,7 @@ impl Cp {
                         return Err(err);
                     }
                 } else if meta.is_dir() {
-                    let new_path = dest_path.join(src_path);
-
+                    let new_path = dest_path.join(src_path.file_name().unwrap());
                     if let Err(err) = fs::copy(&src_path, new_path) {
                         return Err(err);
                     }
@@ -94,9 +93,7 @@ pub fn cp_handler(args: Vec<String>) {
             );
             return;
         }
-        if src_path.is_dir(){
-            
-        }
+        if src_path.is_dir() {}
         if let Err(err) = Cp::exec(src_path, dest_path) {
             eprintln!("cp: error copying file: {}", err);
         }
