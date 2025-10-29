@@ -3,7 +3,7 @@ use chrono_tz::Africa::Casablanca;
 use core::fmt;
 use std::fs::{self};
 use std::fs::{Metadata, metadata};
-use std::io::{Error, ErrorKind};
+use std::io::{Error};
 use std::os::unix::fs::*;
 use std::path::PathBuf;
 use users::{get_group_by_gid, get_user_by_uid};
@@ -192,9 +192,8 @@ impl List {
         let end_with_slash = target.path.display().to_string().ends_with("/");
         let is_symlink = target.file_type == EntityType::SymLink;
         let mut is_dir = false;
-        let mut files: Vec<PathBuf> = Vec::new();
 
-        match read_dir(target.path.clone(), flags.all) {
+        let files = match read_dir(target.path.clone(), flags.all) {
             Ok(res) => {
                 if is_symlink && (flags.classify || flags.long) {
                     if end_with_slash {
@@ -203,12 +202,9 @@ impl List {
                 } else {
                     is_dir = true;
                 }
-                files = res;
+                res
             }
             Err(err) => {
-                if err.kind() == ErrorKind::NotADirectory && is_symlink {
-                    is_dir = false;
-                }
                 handle_ls_erros(err, target.name.clone());
                 return;
             }
@@ -347,8 +343,8 @@ impl fmt::Display for Entity {
             EntityType::BlockDevice | EntityType::CharacterDevice => {
                 format!(
                     "{}, {}",
-                    self.minor.unwrap_or_default(),
-                    self.major.unwrap_or_default()
+                    self.major.unwrap_or_default(),
+                    self.minor.unwrap_or_default()
                 )
             }
             _ => self.size.clone(),
@@ -383,7 +379,7 @@ impl fmt::Display for Entity {
 
             writeln!(
                 f,
-                "{} {} {} {} {} {} {}{}",
+                "{:10} {:>4} {:<8} {:<8} {:>8} {} {}{}",
                 mode, self.nlink, self.uid, self.gid, size, self.time, name, sufix
             )
         } else {
