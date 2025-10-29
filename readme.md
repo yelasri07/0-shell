@@ -39,13 +39,13 @@ A simple, lightweight Unix-like shell written in Rust. This project implements b
 
 1. **Clone the repository:**
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/yelasri07/0-shell.git
 cd 0-shell
 ```
 
 2. **Build the project:**
 ```bash
-cargo build --release
+cargo build
 ```
 
 3. **Run the shell:**
