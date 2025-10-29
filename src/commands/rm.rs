@@ -12,6 +12,12 @@ pub fn rm_handler(args: Vec<String>) {
 
     //check -r flage
     for arg in args {
+
+        //check: refuse to remove the current (".") or parent ("..") directory
+        if arg.ends_with("/.") || arg.ends_with("/..") {
+            eprintln!("rm: refusing to remove '.' or '..' directory: skipping '{}'", arg);
+            continue;
+        }
          match arg.as_str() {
             "-r" => dir_flag = true,
             "." | ".." => eprintln!("rm: refusing to remove '.' or '..'"),
