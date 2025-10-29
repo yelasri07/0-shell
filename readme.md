@@ -55,7 +55,7 @@ cargo run
 
 Or run the compiled binary directly:
 ```bash
-./target/release/0-shell
+./target/debug/0-shell
 ```
 
 ## 📖 Usage Examples
