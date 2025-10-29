@@ -347,8 +347,8 @@ impl fmt::Display for Entity {
             EntityType::BlockDevice | EntityType::CharacterDevice => {
                 format!(
                     "{}, {}",
-                    self.minor.unwrap_or_default(),
-                    self.major.unwrap_or_default()
+                    self.major.unwrap_or_default(),
+                    self.minor.unwrap_or_default()
                 )
             }
             _ => self.size.clone(),
@@ -383,7 +383,7 @@ impl fmt::Display for Entity {
 
             writeln!(
                 f,
-                "{} {} {} {} {} {} {}{}",
+                "{:10} {:>4} {:<8} {:<8} {:>8} {} {}{}",
                 mode, self.nlink, self.uid, self.gid, size, self.time, name, sufix
             )
         } else {
