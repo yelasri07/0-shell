@@ -176,6 +176,7 @@ impl Shell {
             "pwd" => pwd_handler(&self.current_path),
             "clear" => clear_handler(),
             "rm" => rm_handler(args),
+            "touch" => touch_handler(args),
             _ => eprintln!("Command {} not found", cmd),
         }
     }

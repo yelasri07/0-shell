@@ -9,6 +9,7 @@ pub mod mv;
 pub mod pwd;
 pub mod rm;
 pub mod clear;
+pub mod touch;
 
 pub use cat::*;
 pub use cd::*;
@@ -21,3 +22,4 @@ pub use mv::*;
 pub use pwd::*;
 pub use rm::*;
 pub use clear::*;
+pub use touch::*;
