@@ -129,11 +129,6 @@ pub fn cp_handler(args: Vec<String>) {
 
     if target.file_type().is_dir() {
         for opt in cp.options.iter() {
-            if cp.target == "." {
-                eprintln!("cp: '{opt}' and './{opt}' are the same file");
-                continue;
-            }
-
             if opt == "." || opt == ".." {
                 eprintln!(
                     "cp: cannot copy a directory, '{opt}', into itself, {}",
@@ -141,8 +136,24 @@ pub fn cp_handler(args: Vec<String>) {
                 );
                 continue;
             }
+            
             let src_path = Path::new(opt);
+            if !src_path.exists(){
+                //Todo:file or directory inexist
+                continue;
+            }
             let dest_path = Path::new(&cp.target);
+            let src_real = fs::canonicalize(src_path).unwrap();
+            let mut dest_real = fs::canonicalize(dest_path).unwrap();
+
+            if dest_real.is_dir() {
+                dest_real = dest_real.join(src_path.file_name().unwrap());
+            }
+
+            if src_real == dest_real {
+                eprintln!("cp: '{opt}' and '{:?}' are the same file", dest_real);
+                continue;
+            }
             let new_src_dir = if src_path.is_dir() {
                 dest_path.join(src_path.file_name().unwrap())
             } else {
