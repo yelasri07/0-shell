@@ -108,7 +108,10 @@ impl Shell {
 
         if self.is_backslash {
             self.is_backslash = false;
-            let (input, _) = read_line(">", &self.home);
+            let (input, nb_bytes) = read_line(">", &self.home);
+            if nb_bytes == 0 {
+                println!();
+            }
             if let Err(e) = self.parse_input(input.as_str()) {
                 return Err(e);
             }
