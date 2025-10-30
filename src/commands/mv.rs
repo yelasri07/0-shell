@@ -29,10 +29,6 @@ pub fn mv_handler(args: Vec<String>) {
 
     if destination.is_dir() {
         for opt in args[..args.len() - 1].iter() {
-            if destination == Path::new(".") {
-                eprintln!("mv: '{opt}' and './{opt}' are the same file");
-                continue;
-            }
             if opt == "." || opt == ".." {
                 eprintln!(
                     "mv: cannot move '{opt}' to {:?}: Device or resource busy",
@@ -43,6 +39,17 @@ pub fn mv_handler(args: Vec<String>) {
             let src: &Path = Path::new(&opt);
             if !src.exists() {
                 eprintln!("mv: cannot stat '{opt}': No such file or directory");
+                continue;
+            }
+            let src_real = fs::canonicalize(src).unwrap();
+            let mut dest_real = fs::canonicalize(destination).unwrap();
+
+            if dest_real.is_dir() {
+                dest_real = dest_real.join(src.file_name().unwrap());
+            }
+
+            if src_real == dest_real {
+                eprintln!("cp: '{opt}' and '{:?}' are the same file", dest_real);
                 continue;
             }
             if src.is_file() {
