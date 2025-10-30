@@ -25,6 +25,24 @@ pub fn cat_handler(args: Vec<String>) {
 
     for filename in &args {
         //println!("DEBUG: trying to open {}", filename);
+        //cat -
+        if filename == "-" {
+            let stdin = io::stdin();
+            let mut stdout = io::stdout();
+
+            for line in stdin.lock().lines() {
+                match line {
+                    Ok(content) => {
+                        writeln!(stdout, "{}", content).unwrap();
+                    }
+                    Err(e) => {
+                        eprintln!("cat: error reading from stdin: {}", e);
+                        break;
+                    }
+                }
+            }
+            continue; 
+        }
 
         match fs::File::open(filename) {
             Ok(mut file) => {
