@@ -36,6 +36,7 @@ struct LsConfig {
     valid_flags: Vec<char>,
     flags: Flags,
     targets: Vec<Target>,
+    targets_len: usize,
 }
 
 impl LsConfig {
@@ -50,6 +51,7 @@ impl LsConfig {
             current_path,
             targets: Vec::new(),
             valid_flags,
+            targets_len: 0,
         };
 
         let mut flag_args: Vec<String> = Vec::new();
@@ -68,6 +70,7 @@ impl LsConfig {
                 target_args.push(arg);
             }
         }
+        ls.targets_len = target_args.len();
 
         ls.parse_flags(flag_args)?;
         ls.parse_targets(target_args);
@@ -149,7 +152,7 @@ impl LsConfig {
                 println!("")
             }
 
-            if self.targets.len() > 1 && target.1.file_type == EntityType::Dir {
+            if self.targets_len > 1 && target.1.file_type == EntityType::Dir {
                 println!("{}:", list.header);
             }
 
