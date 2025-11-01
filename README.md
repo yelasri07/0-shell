@@ -43,19 +43,15 @@ git clone https://github.com/yelasri07/0-shell.git
 cd 0-shell
 ```
 
-2. **Build the project:**
-```bash
-cargo build
-```
-
-3. **Run the shell:**
+2. **Run the shell:**
 ```bash
 cargo run
 ```
 
-Or run the compiled binary directly:
+3. **Run with Docker:**
 ```bash
-./target/debug/0-shell
+docker build -t 0-shell-app .
+docker run -it --rm 0-shell-app
 ```
 
 ## 📖 Usage Examples
